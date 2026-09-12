@@ -27,3 +27,14 @@ The Drive folder must be accessible to the API key (for this beginner version, u
 
 ### RAG retrieval
 The retriever is intentionally lightweight and focused. It removes common words, prioritizes NOC/domain terms, applies topic filtering, and avoids returning weak unrelated chunks.
+
+
+### Automatic Incident Classification
+The app automatically classifies the user's question into protocol, incident type, and network category using lightweight local rules. No extra LLM call is required.
+
+
+## Three Modules
+
+- 🚨 Incident Analysis — AI + RAG investigation with automatic incident classification.
+- 📊 Network Health — beginner-friendly review of simulated network performance metrics.
+- 📑 NOC Report Generator — creates a structured incident report from user-provided incident details.
