@@ -1,167 +1,48 @@
 # AI-NOC-Copilot
 
-A lightweight beginner AI project for learning **RAG + LLM** using Streamlit and Groq.
+Beginner-friendly AI-NOC Copilot using RAG + Groq LLM.
 
-## Answer Modes
-
-The application provides three clear options:
-
-### 🧠 General AI
+## Project structure
 
 ```text
-Question → LLM → Answer
+AI-NOC-Copilot/
+├── app.py
+├── requirements.txt
+└── README.md
 ```
 
-The question is answered using the LLM's general model knowledge.
+## Google Drive knowledge base
 
-**Important:** this does not mean live internet search.
+This version uses **one fixed Google Drive file/folder source**.
+You do **not** need to paste the Drive link or upload the documents again on every run.
 
-### 📚 Search My Documents
+Open `app.py` and set this once:
 
-```text
-Question → RAG Retrieval → Retrieved Content
+```python
+FIXED_GOOGLE_DRIVE_URL = "YOUR_GOOGLE_DRIVE_FILE_OR_FOLDER_LINK"
 ```
 
-The application searches only the documents uploaded by the user and displays the relevant retrieved content.
+The app then loads that source automatically when `🔗 Fixed Google Drive` is selected.
+The Drive loader is cached for 1 hour, so normal Streamlit UI reruns do not repeatedly download the same files.
 
-This is useful for understanding and testing the RAG retrieval step.
+Supported Drive content in this beginner version: TXT, PDF, DOCX, plus Google Docs exported as text.
 
-### 🤖 Documents + AI
+The Drive source must be accessible to the configured Google Drive API key. Private personal Drive content requires OAuth and is not covered by this simple API-key version.
 
-```text
-Question
-   ↓
-Retrieve relevant uploaded document content
-   ↓
-RAG Context
-   ↓
-LLM
-   ↓
-Final Answer
-```
+## Streamlit secrets
 
-This demonstrates the basic RAG + LLM pattern.
-
-## RAG File Upload
-
-Supported files:
-
-- TXT
-- PDF
-- DOCX
-
-The application:
-
-1. Extracts text
-2. Splits it into simple chunks
-3. Searches the chunks using keyword matching
-4. Shows the relevant chunks
-5. Optionally sends those chunks to the LLM
-
-## Clear Results
-
-The **🗑️ Clear Results** button clears the previous question, retrieved RAG results, LLM response, and error message.
-
-## Important
-
-There are **no built-in NOC knowledge responses** in this version.
-
-RAG uses only the documents that you upload.
-
-## API Key
-
-This project uses Groq.
-
-In Streamlit Cloud → Settings → Secrets, add:
+Add:
 
 ```toml
-GROQ_API_KEY = "your_actual_groq_api_key"
+GROQ_API_KEY = "your_groq_key"
+GOOGLE_DRIVE_API_KEY = "your_google_drive_api_key"
 ```
 
-The secret name must be exactly:
+Never commit API keys to GitHub.
 
-```text
-GROQ_API_KEY
-```
+## Run locally
 
-Never put the actual API key in `app.py` or GitHub.
-
-## Streamlit Cloud
-
-1. Push `app.py`, `requirements.txt`, and `README.md` to GitHub.
-2. Create/open the Streamlit Cloud application.
-3. Select `app.py` as the main file.
-4. Go to Settings → Secrets.
-5. Add the `GROQ_API_KEY` secret.
-6. Save and reboot/redeploy if required.
-
-## Example Test
-
-Upload the NOC RAG test documents.
-
-Ask:
-
-```text
-What can cause a BGP session to go down?
-```
-
-Then test each mode:
-
-**🧠 General AI**
-
-Shows the LLM's general answer without using your documents.
-
-**📚 Search My Documents**
-
-Shows what your uploaded documents retrieve.
-
-**🤖 Documents + AI**
-
-Shows the retrieved document content and the LLM's explanation based on that context.
-
-## Current RAG Implementation
-
-This is intentionally a beginner implementation:
-
-```text
-Document
-   ↓
-Text Extraction
-   ↓
-Simple Chunking
-   ↓
-Keyword Matching
-   ↓
-Relevant Chunks
-   ↓
-LLM (when Documents + AI is selected)
-```
-
-It does not yet use:
-
-- Embeddings
-- Vector databases
-- Semantic search
-- Agents
-- Complex workflows
-- Live web search
-
-These can be added later as separate learning steps.
-
-## Learning Goal
-
-The main goal of this version is to understand the difference between:
-
-```text
-LLM
-```
-
-```text
-RAG
-```
-
-and:
-
-```text
-RAG + LLM
+```bash
+python3 -m pip install -r requirements.txt
+streamlit run app.py
 ```
