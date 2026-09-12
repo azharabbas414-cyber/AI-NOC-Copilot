@@ -1,48 +1,26 @@
-# AI-NOC-Copilot
+# AI-NOC Copilot
 
-Beginner-friendly AI-NOC Copilot using RAG + Groq LLM.
+Beginner-friendly AI NOC Copilot using RAG, Google Drive, and Groq.
 
-## Project structure
+## Features
+- Fixed Google Drive knowledge source (configured once in `app.py`)
+- Automatically loads supported TXT, PDF, and DOCX files from the Drive folder
+- Simple RAG retrieval
+- General AI mode
+- Search My Documents mode
+- Documents + AI mode
+- Clear Results button
+- No router/SSH access
+- No automatic remediation
 
-```text
-AI-NOC-Copilot/
-├── app.py
-├── requirements.txt
-└── README.md
-```
-
-## Google Drive knowledge base
-
-This version uses **one fixed Google Drive file/folder source**.
-You do **not** need to paste the Drive link or upload the documents again on every run.
-
-Open `app.py` and set this once:
-
-```python
-FIXED_GOOGLE_DRIVE_URL = "YOUR_GOOGLE_DRIVE_FILE_OR_FOLDER_LINK"
-```
-
-The app then loads that source automatically when `🔗 Fixed Google Drive` is selected.
-The Drive loader is cached for 1 hour, so normal Streamlit UI reruns do not repeatedly download the same files.
-
-Supported Drive content in this beginner version: TXT, PDF, DOCX, plus Google Docs exported as text.
-
-The Drive source must be accessible to the configured Google Drive API key. Private personal Drive content requires OAuth and is not covered by this simple API-key version.
-
-## Streamlit secrets
-
-Add:
+## Streamlit Cloud secrets
+Add these in **Settings → Secrets**:
 
 ```toml
-GROQ_API_KEY = "your_groq_key"
-GOOGLE_DRIVE_API_KEY = "your_google_drive_api_key"
+GROQ_API_KEY = "your-groq-api-key"
+GOOGLE_DRIVE_API_KEY = "your-google-drive-api-key"
 ```
 
-Never commit API keys to GitHub.
+The Google Drive folder link is already fixed in `app.py`, so users do not need to paste it or upload the documents repeatedly.
 
-## Run locally
-
-```bash
-python3 -m pip install -r requirements.txt
-streamlit run app.py
-```
+The Drive folder must be accessible to the API key (for this beginner version, use a folder/files shared appropriately for link/API access). Private Drive content requiring OAuth is not included in this version.
