@@ -1,10 +1,28 @@
+import os
 import gradio as gr
 import pandas as pd
+from openai import OpenAI
 
 
-# -----------------------------
+# ============================================================
+# Grok configuration
+# ============================================================
+XAI_API_KEY = os.getenv("XAI_API_KEY")
+GROK_MODEL = "grok-4.6"
+
+
+def get_grok_client():
+    if not XAI_API_KEY:
+        return None
+    return OpenAI(
+        api_key=XAI_API_KEY,
+        base_url="https://api.x.ai/v1",
+    )
+
+
+# ============================================================
 # Sample network telemetry
-# -----------------------------
+# ============================================================
 SAMPLE_NETWORK_DATA = pd.DataFrame(
     [
         {
@@ -35,9 +53,9 @@ SAMPLE_NETWORK_DATA = pd.DataFrame(
 )
 
 
-# -----------------------------
+# ============================================================
 # Step 1: Validate incident
-# -----------------------------
+# ============================================================
 def validate_incident(incident):
     incident = (incident or "").strip()
 
@@ -50,9 +68,9 @@ def validate_incident(incident):
     return True, "Incident validated successfully."
 
 
-# -----------------------------
+# ============================================================
 # Step 2: Classify incident
-# -----------------------------
+# ============================================================
 def classify_incident(incident):
     text = incident.lower()
 
@@ -74,9 +92,9 @@ def classify_incident(incident):
     return incident_type, severity
 
 
-# -----------------------------
+# ============================================================
 # Step 3: Analyze network data
-# -----------------------------
+# ============================================================
 def analyze_network_data(data):
     findings = []
 
@@ -112,11 +130,9 @@ def analyze_network_data(data):
     return findings
 
 
-# -----------------------------
-# Step 4: Initial RAG retrieval
-# Step 5 will replace this with
-# a real vector-search + Grok flow.
-# -----------------------------
+# ============================================================
+# Step 4: RAG knowledge base
+# ============================================================
 KNOWLEDGE_BASE = [
     {
         "topic": "Packet Loss",
@@ -153,6 +169,7 @@ KNOWLEDGE_BASE = [
             "queueing, or transport problems. Compare latency with utilization "
             "and packet-loss evidence."
         ),
+    },
 ]
 
 
@@ -171,7 +188,7 @@ def retrieve_rag_knowledge(incident, top_k=3):
         )
 
         for keyword in text.split():
-            keyword = keyword.strip(".,!?;:"'()")
+            keyword = keyword.strip(".,!?;:\"'()")
             if len(keyword) >= 4 and keyword in searchable:
                 score += 1
 
@@ -186,93 +203,121 @@ def retrieve_rag_knowledge(incident, top_k=3):
     return selected
 
 
-# -----------------------------
-# Step 6: Evidence-based RCA
-# -----------------------------
-def generate_root_cause(findings):
-    finding_text = " ".join(findings).lower()
+# ============================================================
+# Step 5: Grok AI reasoning
+# ============================================================
+def analyze_with_grok(
+    incident,
+    incident_type,
+    severity,
+    findings,
+    retrieved_knowledge,
+):
+    client = get_grok_client()
 
-    if (
-        "high interface utilization" in finding_text
-        and "packet loss detected" in finding_text
-        and "high queue drops detected" in finding_text
-    ):
-        return (
-            "Network congestion",
-            91,
-            "High utilization, packet loss, and high queue drops are correlated. "
-            "No CRC errors were observed, which makes interface/physical errors "
-            "less likely based on the supplied telemetry.",
-        )
+    if client is None:
+        return {
+            "status": "Grok API key not configured.",
+            "analysis": (
+                "Grok analysis was not executed. Add the XAI_API_KEY environment "
+                "secret before running the AI investigation."
+            ),
+            "root_cause": "Unavailable",
+            "confidence": 0,
+            "recommendations": [
+                "Configure XAI_API_KEY and rerun the investigation."
+            ],
+        }
 
-    if "crc errors detected" in finding_text:
-        return (
-            "Possible interface/physical-link issue",
-            82,
-            "CRC errors are present and should be correlated with interface "
-            "errors, packet loss, and physical-link health.",
-        )
-
-    if "packet loss detected" in finding_text:
-        return (
-            "Packet-loss condition requiring further investigation",
-            65,
-            "Packet loss is observed, but the supplied evidence is insufficient "
-            "to confirm a single root cause.",
-        )
-
-    return (
-        "Insufficient evidence for a probable root cause",
-        35,
-        "The supplied telemetry does not contain enough abnormal indicators.",
+    evidence_text = "\n".join(f"- {item}" for item in findings)
+    rag_text = "\n".join(
+        f"- {item['topic']} ({item['category']}): {item['content']}"
+        for item in retrieved_knowledge
     )
 
+    prompt = f"""
+You are an expert Telecom NOC and Network Operations Copilot.
 
-# -----------------------------
-# Step 7: Recommendations
-# -----------------------------
-def generate_recommendations(root_cause):
-    if "congestion" in root_cause.lower():
-        return [
-            "Review WAN/interface utilization and identify top traffic sources.",
-            "Check QoS policies, queues, and queue-drop counters.",
-            "Review traffic distribution and possible capacity constraints.",
-            "Correlate the incident with traffic spikes and historical utilization.",
-        ]
+Investigate the following network incident using ONLY the supplied incident,
+observed evidence, and retrieved knowledge as the primary context.
 
-    if "interface" in root_cause.lower():
-        return [
-            "Check interface error counters and link health.",
-            "Correlate CRC/input/output errors with packet loss.",
-            "Review physical/link-layer alarms where available.",
-        ]
+IMPORTANT SAFETY RULES:
+- Do not claim certainty when evidence is insufficient.
+- Clearly distinguish observed evidence from inference.
+- Do not invent telemetry, logs, configurations, or alarms.
+- Do not recommend automatic network changes.
+- All operational actions require human engineer validation.
 
-    return [
-        "Collect additional interface, routing, and performance telemetry.",
-        "Compare the affected path with a known-good path.",
-        "Review recent alarms and network changes.",
-    ]
+INCIDENT:
+{incident}
+
+CLASSIFICATION:
+Type: {incident_type}
+Severity: {severity}
+
+OBSERVED NETWORK EVIDENCE:
+{evidence_text}
+
+RETRIEVED RAG KNOWLEDGE:
+{rag_text}
+
+Return a concise investigation with these sections:
+
+PROBABLE ROOT CAUSE:
+CONFIDENCE:
+OBSERVED EVIDENCE:
+REASONING:
+POSSIBLE IMPACT:
+RECOMMENDED TROUBLESHOOTING:
+MISSING INFORMATION:
+HUMAN DECISION:
+"""
+
+    try:
+        response = client.responses.create(
+            model=GROK_MODEL,
+            input=prompt,
+        )
+
+        text = response.output_text.strip()
+
+        return {
+            "status": f"Grok {GROK_MODEL} analysis completed.",
+            "analysis": text,
+            "root_cause": "See Grok analysis",
+            "confidence": 0,
+            "recommendations": [
+                "Review the Grok recommendations and validate them against live network evidence."
+            ],
+        }
+
+    except Exception as exc:
+        return {
+            "status": "Grok API request failed.",
+            "analysis": f"Grok API error: {exc}",
+            "root_cause": "Unavailable",
+            "confidence": 0,
+            "recommendations": [
+                "Check the XAI_API_KEY, API access/credits, model availability, and network connectivity."
+            ],
+        }
 
 
-# -----------------------------
-# Step 8: Report
-# -----------------------------
+# ============================================================
+# Step 6: Report
+# ============================================================
 def generate_report(
     incident,
     incident_type,
     severity,
     findings,
     retrieved,
-    root_cause,
-    confidence,
-    explanation,
-    recommendations,
+    grok_result,
 ):
     evidence = "\n".join(f"- {item}" for item in findings)
     knowledge = "\n".join(
         f"- {item['topic']} ({item['category']})" for item in retrieved
     )
-    actions = "\n".join(f"{i}. {item}" for i, item in enumerate(recommendations, 1))
 
     return f"""# AI-NOC Copilot Investigation Report
 
@@ -289,58 +334,36 @@ def generate_report(
 ## Retrieved NOC Knowledge
 {knowledge}
 
-## Probable Root Cause
-**{root_cause}**
-
-## Confidence
-**{confidence}%**
-
-## AI Explanation
-{explanation}
-
-## Recommended Troubleshooting
-{actions}
+## Grok AI Investigation
+{grok_result["analysis"]}
 
 ## Human Decision
-**Engineer validation required before any operational action.**
+**Engineer validation is required before any operational action.**
 
-> This is a read-only AI investigation. The result is a probable assessment,
-> not confirmation of a production root cause.
+> Read-only AI investigation. No router commands or configuration changes are
+> executed by this application.
 """
 
 
-# -----------------------------
+# ============================================================
 # Complete automated workflow
-# -----------------------------
+# ============================================================
 def run_investigation(incident):
     valid, validation_message = validate_incident(incident)
 
     if not valid:
-        return (
-            validation_message,
-            "",
-            "",
-            "",
-            "",
-        )
+        return validation_message, "", "", "", ""
 
     incident_type, severity = classify_incident(incident)
     findings = analyze_network_data(SAMPLE_NETWORK_DATA)
     retrieved = retrieve_rag_knowledge(incident)
 
-    root_cause, confidence, explanation = generate_root_cause(findings)
-    recommendations = generate_recommendations(root_cause)
-
-    report = generate_report(
+    grok_result = analyze_with_grok(
         incident,
         incident_type,
         severity,
         findings,
         retrieved,
-        root_cause,
-        confidence,
-        explanation,
-        recommendations,
     )
 
     workflow_status = (
@@ -348,21 +371,16 @@ def run_investigation(incident):
         "2. Incident classified ✓\n"
         "3. Network data analyzed ✓\n"
         "4. RAG knowledge retrieved ✓\n"
-        "5. Grok AI reasoning — NEXT STEP\n"
-        "6. Root cause generated ✓\n"
-        "7. Confidence assessed ✓\n"
-        "8. Recommendations generated ✓\n"
-        "9. Human validation required"
+        f"5. {grok_result['status']}\n"
+        "6. AI investigation completed ✓\n"
+        "7. Human validation required"
     )
 
-    analysis = (
+    evidence_output = (
         f"Incident Type: {incident_type}\n"
         f"Severity: {severity}\n\n"
         "Observed Evidence:\n"
         + "\n".join(f"- {item}" for item in findings)
-        + f"\n\nProbable Root Cause: {root_cause}"
-        + f"\nConfidence: {confidence}%"
-        + f"\n\nExplanation:\n{explanation}"
     )
 
     rag_output = "\n".join(
@@ -370,16 +388,27 @@ def run_investigation(incident):
         for item in retrieved
     )
 
-    recommendation_output = "\n".join(
-        f"{i}. {item}" for i, item in enumerate(recommendations, 1)
+    report = generate_report(
+        incident,
+        incident_type,
+        severity,
+        findings,
+        retrieved,
+        grok_result,
     )
 
-    return workflow_status, analysis, rag_output, recommendation_output, report
+    return (
+        workflow_status,
+        evidence_output + "\n\nGrok AI Analysis:\n" + grok_result["analysis"],
+        rag_output,
+        "\n".join(f"- {item}" for item in grok_result["recommendations"]),
+        report,
+    )
 
 
-# -----------------------------
+# ============================================================
 # Gradio UI
-# -----------------------------
+# ============================================================
 with gr.Blocks(title="AI-NOC Copilot") as demo:
     gr.Markdown(
         """
@@ -423,29 +452,14 @@ with gr.Blocks(title="AI-NOC Copilot") as demo:
                 variant="primary",
             )
 
-    workflow_status = gr.Textbox(
-        label="Workflow Status",
-        lines=10,
-    )
-
-    analysis_output = gr.Textbox(
-        label="AI Investigation",
-        lines=12,
-    )
-
-    rag_output = gr.Textbox(
-        label="Retrieved NOC Knowledge (RAG)",
-        lines=10,
-    )
-
+    workflow_status = gr.Textbox(label="Workflow Status", lines=8)
+    analysis_output = gr.Textbox(label="AI Investigation", lines=18)
+    rag_output = gr.Textbox(label="Retrieved NOC Knowledge (RAG)", lines=10)
     recommendation_output = gr.Textbox(
         label="Troubleshooting Recommendations",
         lines=8,
     )
-
-    report_output = gr.Markdown(
-        label="Investigation Report"
-    )
+    report_output = gr.Markdown()
 
     investigate_button.click(
         fn=run_investigation,
