@@ -375,169 +375,93 @@ def clear_results():
 # =========================================================
 # 6. UI
 # =========================================================
-st.set_page_config(page_title="AI-NOC Copilot", page_icon="🤖", layout="centered")
+st.set_page_config(page_title="AI-NOC Copilot", page_icon="🤖", layout="wide")
 
-
-
-# --- Polished UI ---
 st.markdown("""
 <style>
-.block-container {max-width: 1150px; padding-top: 1.8rem; padding-bottom: 3rem;}
+/* Dark, compact dashboard */
+.stApp { background: #050505; color: #f3f3f3; }
+[data-testid="stHeader"] { background: rgba(0,0,0,0); }
+.block-container { max-width: 1400px; padding: 1.0rem 2rem .7rem; }
 .hero {
-    padding: 1.5rem 1.7rem; border: 1px solid rgba(128,128,128,.18);
-    border-radius: 18px; margin-bottom: 1.25rem;
-    background: linear-gradient(135deg, rgba(70,90,140,.10), rgba(70,140,120,.07));
+  background: linear-gradient(135deg,#111 0%,#090909 100%);
+  border: 1px solid #292929; border-radius: 16px;
+  padding: 1rem 1.35rem; margin-bottom: .7rem;
 }
-.hero h1 {margin:0 0 .35rem 0; font-size: 2.05rem;}
-.hero p {margin:0; opacity:.78; font-size:1rem;}
-.section-title {font-weight:700; font-size:1.08rem; margin:1.1rem 0 .45rem;}
-.status {
-    border-radius: 12px; padding: .75rem 1rem; margin:.5rem 0 1rem;
-    border:1px solid rgba(128,128,128,.18);
+.hero h1 { margin:0; font-size:1.8rem; letter-spacing:-.02em; }
+.hero p { margin:.2rem 0 0; color:#9d9d9d; font-size:.88rem; }
+.section-label { color:#bdbdbd; font-size:.78rem; text-transform:uppercase; letter-spacing:.08em; margin:.35rem 0 .3rem; }
+div[data-testid="stTextArea"] textarea {
+  background:#0d0d0d !important; color:#f5f5f5 !important;
+  border:1px solid #303030 !important; border-radius:12px !important;
 }
-.answer-card {
-    border:1px solid rgba(128,128,128,.18); border-radius:16px;
-    padding:1rem 1.1rem; margin-top:.65rem;
-}
-.answer-card h4 {margin-top:0;}
-.small-muted {opacity:.65; font-size:.88rem;}
-div[data-testid="stRadio"] > div {gap: .45rem;}
+div[data-testid="stRadio"] > div { gap:.35rem; }
 div[data-testid="stRadio"] label {
-    border:1px solid rgba(128,128,128,.20); border-radius:12px;
-    padding:.35rem .7rem; 
+  background:#0d0d0d; border:1px solid #2c2c2c; border-radius:10px;
+  padding:.22rem .55rem; color:#ddd;
 }
+div[data-testid="stButton"] button { border-radius:10px; min-height:2.35rem; }
+.status-card {
+  background:#0b0b0b; border:1px solid #292929; border-radius:11px;
+  padding:.55rem .75rem; color:#bcbcbc; font-size:.82rem;
+}
+.result-title { font-size:1rem; font-weight:700; margin-bottom:.35rem; }
+.result-sub { color:#888; font-size:.76rem; margin-bottom:.45rem; }
+.compare-note { color:#888; font-size:.75rem; margin-top:.25rem; }
+footer { visibility:hidden; }
 </style>
 """, unsafe_allow_html=True)
 
 st.markdown("""
 <div class="hero">
   <h1>🤖 AI-NOC Copilot</h1>
-  <p>Lightweight AI assistant for NOC incident analysis • RAG + AI comparison</p>
+  <p>AI + RAG incident analysis • lightweight learning & demo project</p>
 </div>
 """, unsafe_allow_html=True)
+
 for key, default in {
-    "question": "",
-    "answer": "",
-    "rag_results": [],
-    "error": "",
-    "drive_chunks": [],
-    "drive_files": [],
+    "question": "", "answer": "", "rag_results": [], "error": "",
+    "drive_chunks": [], "drive_files": [],
 }.items():
     if key not in st.session_state:
         st.session_state[key] = default
 
-st.title("🤖 AI-NOC Copilot")
-st.write(
-    "A beginner AI project for learning RAG + LLM using your own NOC knowledge."
-)
+# Fixed knowledge source: no repeated upload or link entry.
+try:
+    with st.spinner("Loading NOC knowledge base..."):
+        rag_chunks, drive_files = load_google_drive(FIXED_GOOGLE_DRIVE_URL)
+    st.session_state.drive_chunks = rag_chunks
+    st.session_state.drive_files = drive_files
+    status_text = f"● NOC knowledge ready  •  {len(drive_files)} docs  •  {len(rag_chunks)} chunks"
+except Exception as exc:
+    rag_chunks = st.session_state.get("drive_chunks", [])
+    drive_files = st.session_state.get("drive_files", [])
+    status_text = f"⚠ Knowledge base: {exc}"
 
-st.info("Question → Choose Source → Retrieve → Answer")
+st.markdown(f'<div class="status-card">{status_text}</div>', unsafe_allow_html=True)
 
-# ---------------------------------------------------------
-# RAG source
-# ---------------------------------------------------------
-st.subheader("📚 RAG Knowledge")
-
-source_type = st.radio(
-    "Choose where your RAG documents come from",
-    ["📁 Upload from PC", "🔗 Fixed Google Drive"],
-    horizontal=True,
-)
-
-rag_chunks = []
-drive_files = []
-
-if source_type == "📁 Upload from PC":
-    uploaded_files = st.file_uploader(
-        "Upload NOC knowledge files",
-        type=["txt", "pdf", "docx"],
-        accept_multiple_files=True,
-    )
-
-    if uploaded_files:
-        for uploaded_file in uploaded_files:
-            text = extract_text_from_bytes(
-                uploaded_file.getvalue(),
-                uploaded_file.name,
-            )
-
-            if text.strip():
-                rag_chunks.extend(split_into_chunks(text))
-
-        if rag_chunks:
-            st.success(
-                f"✅ {len(uploaded_files)} document(s) ready for RAG • "
-                f"{len(rag_chunks)} chunk(s)"
-            )
-
-else:
-    # The Drive source is fixed in the app, so the user does not need to
-    # paste the link or upload the documents on every run.
-    drive_url = FIXED_GOOGLE_DRIVE_URL.strip()
-
-    if drive_url == "PASTE_YOUR_GOOGLE_DRIVE_LINK_HERE":
-        st.warning(
-            "Set your Google Drive link once in FIXED_GOOGLE_DRIVE_URL in app.py."
-        )
-    else:
-        st.caption("🔗 Fixed Google Drive source")
-        st.code(drive_url, language=None)
-
-        # Cache the downloaded Drive content so normal Streamlit reruns do not
-        # download the same documents again.
-        try:
-            with st.spinner("Loading fixed Google Drive knowledge base..."):
-                rag_chunks, drive_files = load_google_drive(drive_url)
-
-            st.session_state.drive_chunks = rag_chunks
-            st.session_state.drive_files = drive_files
-
-            st.success(
-                f"✅ {len(drive_files)} document(s) ready for RAG • "
-                f"{len(rag_chunks)} chunk(s)"
-            )
-        except Exception as exc:
-            st.error(f"Google Drive error: {exc}")
-
-        if drive_files:
-            st.caption("Loaded: " + " • ".join(drive_files))
-
-
-# ---------------------------------------------------------
-# Question
-# ---------------------------------------------------------
-st.subheader("📝 Ask Your Question")
-
+st.markdown('<div class="section-label">Ask your NOC question</div>', unsafe_allow_html=True)
 question = st.text_area(
-    "Question",
-    value=st.session_state.question,
+    "Question", value=st.session_state.question,
     placeholder="Example: What can cause a BGP session to go down?",
-    height=120,
+    height=82, label_visibility="collapsed"
 )
 
+st.markdown('<div class="section-label">Choose answer mode</div>', unsafe_allow_html=True)
 mode = st.radio(
-    "How should the answer be generated?",
-    [
-        "🧠 AI Response",
-        "📚 RAG Response",
-        "🔍 RAG + AI Comparison",
-    ],
-    index=2,
+    "Answer mode",
+    ["🧠 AI Response", "📚 RAG Response", "🔍 RAG + AI Comparison"],
+    index=2, horizontal=True, label_visibility="collapsed"
 )
 
-st.caption(
-    "🧠 AI Response = model knowledge. "
-    "📚 RAG Response = retrieved RAG content only. "
-    "🔍 RAG + AI Comparison = RAG context + LLM explanation."
-)
-
-col1, col2 = st.columns(2)
-
-with col1:
-    analyze = st.button("🚀 Get Answer", type="primary", use_container_width=True)
-
-with col2:
-    clear = st.button("🗑️ Clear Results", use_container_width=True)
+c1, c2, c3 = st.columns([1.5, 1, 1])
+with c1:
+    analyze = st.button("🚀 Analyze Incident", type="primary", use_container_width=True)
+with c2:
+    clear = st.button("🗑️ Clear", use_container_width=True)
+with c3:
+    if drive_files:
+        st.caption("📁 " + " • ".join(drive_files[:2]) + (" • …" if len(drive_files) > 2 else ""))
 
 if clear:
     clear_results()
@@ -545,9 +469,8 @@ if clear:
 
 if analyze:
     q = question.strip()
-
     if not q:
-        st.warning("Please enter a question.")
+        st.warning("Enter a NOC question first.")
         st.stop()
 
     st.session_state.question = q
@@ -556,67 +479,66 @@ if analyze:
     st.session_state.error = ""
 
     if mode == "🧠 AI Response":
-        with st.spinner("Generating General AI response..."):
+        with st.spinner("Generating AI response..."):
             answer, error = call_llm(q)
-
-        if error:
-            st.session_state.error = error
-        else:
-            st.session_state.answer = answer
+        if error: st.session_state.error = error
+        else: st.session_state.answer = answer
 
     elif mode == "📚 RAG Response":
         if not rag_chunks:
-            st.session_state.error = "Please load RAG documents first."
+            st.session_state.error = "No RAG documents are available."
         else:
             results = retrieve_knowledge(q, rag_chunks)
             st.session_state.rag_results = results
-
             if not results:
-                st.session_state.error = (
-                    "No relevant content was found in your RAG documents."
-                )
+                st.session_state.error = "No relevant content was found in the NOC knowledge base."
 
     else:
         if not rag_chunks:
-            st.session_state.error = "Please load RAG documents first."
+            st.session_state.error = "No RAG documents are available."
         else:
             results = retrieve_knowledge(q, rag_chunks)
             st.session_state.rag_results = results
+            context = "\n\n".join(f"SOURCE: {x['source']}\n{x['text']}" for x in results)
+            with st.spinner("Comparing RAG evidence with AI reasoning..."):
+                answer, error = call_llm(q, rag_context=context if context else None)
+            if error: st.session_state.error = error
+            else: st.session_state.answer = answer
 
-            context = "\n\n".join(
-                f"SOURCE: {item['source']}\n{item['text']}"
-                for item in results
-            )
-
-            with st.spinner("Generating answer using RAG + AI..."):
-                answer, error = call_llm(
-                    q,
-                    rag_context=context if context else None,
-                )
-
-            if error:
-                st.session_state.error = error
-            else:
-                st.session_state.answer = answer
-
-
-# ---------------------------------------------------------
-# Results
-# ---------------------------------------------------------
+# Compact results area: comparison is side-by-side, so it stays in one viewport.
 if st.session_state.error:
     st.error(st.session_state.error)
 
-if st.session_state.rag_results:
-    st.subheader("📖 RAG Retrieved Results")
-    for item in st.session_state.rag_results:
-        with st.expander(item["source"], expanded=True):
-            st.write(item["text"])
+rag = st.session_state.rag_results
+ans = st.session_state.answer
 
-if st.session_state.answer:
-    st.subheader("🤖 LLM Response")
-    st.markdown(st.session_state.answer)
+if mode == "🔍 RAG + AI Comparison" and (rag or ans):
+    left, right = st.columns(2, gap="medium")
+    with left:
+        st.markdown('<div class="result-title">📚 RAG Evidence</div><div class="result-sub">What your NOC documents say</div>', unsafe_allow_html=True)
+        with st.container(height=360, border=True):
+            if rag:
+                for item in rag:
+                    st.markdown(f"**{item['source']}**")
+                    st.write(item['text'])
+            else:
+                st.info("No matching RAG evidence.")
+    with right:
+        st.markdown('<div class="result-title">🧠 AI Explanation</div><div class="result-sub">LLM explanation grounded in the retrieved evidence</div>', unsafe_allow_html=True)
+        with st.container(height=360, border=True):
+            if ans: st.markdown(ans)
+            else: st.info("No AI response.")
 
-st.divider()
-st.caption(
-    "Learning/demo project. Verify AI answers against real network evidence."
-)
+elif rag:
+    st.markdown('<div class="result-title">📚 RAG Retrieved Result</div><div class="result-sub">Focused evidence from your NOC knowledge base</div>', unsafe_allow_html=True)
+    with st.container(height=360, border=True):
+        for item in rag:
+            st.markdown(f"**{item['source']}**")
+            st.write(item['text'])
+
+elif ans:
+    st.markdown('<div class="result-title">🧠 AI Response</div><div class="result-sub">Generated from general model knowledge</div>', unsafe_allow_html=True)
+    with st.container(height=360, border=True):
+        st.markdown(ans)
+
+st.markdown('<div class="compare-note">Learning/demo project — verify AI answers against real network evidence before operational use.</div>', unsafe_allow_html=True)
