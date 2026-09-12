@@ -1,57 +1,56 @@
-# AI-NOC-Copilot
+# AI-NOC Copilot
 
-AI-NOC Copilot is an AI-powered Network Operations assistant for NOC and
-network engineers. It automates the initial investigation of network incidents
-using network evidence, RAG-based knowledge, LLM reasoning, root-cause analysis,
-confidence scoring, and troubleshooting recommendations.
+A lightweight beginner project that demonstrates how **Generative AI + simple RAG** can be used to help a Network Operations Center (NOC) engineer understand a network incident.
 
-## Current Milestone
+## Project Goal
 
-**Step 5A — Automated AI Investigation Workflow**
+The project is intentionally simple.
 
-The current prototype implements the investigation orchestration flow:
+It is designed for learning the basic AI flow rather than building a production network automation platform.
 
 ```text
-Incident
-   ↓
-Validation
-   ↓
-Classification
-   ↓
-Network Data Analysis
-   ↓
-RAG Knowledge Retrieval
-   ↓
-Grok AI Reasoning (next integration)
-   ↓
-Root Cause Analysis
-   ↓
-Confidence
-   ↓
-Recommendations
-   ↓
-Investigation Report
-   ↓
-Human Validation
+Network Incident
+       ↓
+Simple RAG Search
+       ↓
+Relevant NOC Knowledge
+       ↓
+Grok LLM
+       ↓
+AI Investigation
 ```
 
-The current version uses simulated network telemetry and a small in-code NOC
-knowledge base. Grok API integration and production-grade vector retrieval will
-be added in the next implementation stages.
+## What the application does
 
-## Safety
+1. The user enters a network incident.
+2. The application searches a small built-in NOC knowledge base.
+3. The most relevant knowledge is selected.
+4. The knowledge and incident are sent to Grok.
+5. Grok provides:
+   - Incident understanding
+   - Probable root cause
+   - Evidence
+   - Recommended checks
+   - Confidence
 
-This is a read-only prototype. It does not:
+## What is NOT included
 
-- SSH into routers
-- Execute network commands
-- Modify configurations
-- Restart interfaces
-- Automatically apply remediation
+This beginner version deliberately does not include:
 
-The final operational decision remains with the human network engineer.
+- SSH access
+- Physical router/switch access
+- Automatic configuration changes
+- Network device APIs
+- Complex workflow engines
+- Vector databases
+- Embedding infrastructure
+- Large document ingestion pipelines
+- Production monitoring
+- Automatic remediation
 
-## Project Structure
+These can be added later after the basic AI concepts are understood.
+
+## Files
 
 ```text
 AI-NOC-Copilot/
@@ -60,27 +59,100 @@ AI-NOC-Copilot/
 └── README.md
 ```
 
-## Technology
+## Requirements
 
-- Python
-- Gradio
-- Pandas
-- Grok API (planned)
-- RAG (progressive implementation)
-- Vector search (progressive implementation)
-- GitHub
+- Python 3.9+
+- A Grok/xAI API key
 
-## Development Roadmap
+## Run locally
 
-1. GitHub Repository — Complete
-2. MVP Definition — Complete
-3. PRD — Complete
-4. RAG Design — Complete
-5. Automated AI Investigation Workflow — In Progress
-6. Grok API Integration
-7. RAG Vector Search
-8. Network Analysis Enhancement
-9. Gradio UI Enhancement
-10. Testing & Evaluation
-11. Deployment
-12. Hackathon Demo
+Install the dependencies:
+
+```bash
+python3 -m pip install -r requirements.txt
+```
+
+Set your API key as an environment variable.
+
+### Linux/macOS
+
+```bash
+export XAI_API_KEY="your_api_key_here"
+```
+
+### Windows PowerShell
+
+```powershell
+$env:XAI_API_KEY="your_api_key_here"
+```
+
+Then start the application:
+
+```bash
+python3 app.py
+```
+
+Gradio will provide a local web address.
+
+## API Key Security
+
+Do **not** put the API key inside `app.py`.
+
+Use the secret/environment variable name:
+
+```text
+XAI_API_KEY
+```
+
+Do not commit the actual API key to GitHub.
+
+## Example incident
+
+Try:
+
+```text
+Users are reporting high latency and packet loss.
+The affected link also appears to have high traffic utilization.
+```
+
+The application should retrieve knowledge related to packet loss, latency, and congestion and then ask Grok to analyze the incident.
+
+## RAG in this project
+
+This project uses a deliberately simple form of Retrieval-Augmented Generation.
+
+The built-in knowledge base contains short NOC troubleshooting topics such as:
+
+- Packet Loss
+- High Latency
+- Congestion
+- Interface Errors
+- OSPF
+- BGP
+- VLAN
+- MTU
+
+The application looks for relevant keywords in the incident and retrieves matching knowledge.
+
+That retrieved knowledge is then included in the prompt sent to Grok.
+
+## Important note
+
+This is a learning/demo project.
+
+The AI output is advisory and should not be treated as proof of a network fault. A real NOC engineer should verify the suggested cause using actual network evidence before taking action.
+
+## Next learning steps
+
+After this simple version is working, the project can gradually evolve:
+
+1. Improve RAG
+2. Add uploaded network documents
+3. Add embeddings
+4. Add a vector database
+5. Add structured incident data
+6. Add evaluation/testing
+7. Add workflow automation
+8. Deploy the application online
+
+The goal is to add **one concept at a time**, rather than making the first version unnecessarily complex.
