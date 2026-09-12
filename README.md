@@ -1,37 +1,56 @@
 # AI-NOC-Copilot
 
-A lightweight beginner AI project for learning **Generative AI + RAG** in a Network Operations Center (NOC) scenario.
+A lightweight beginner AI project for learning **LLM + RAG** using Streamlit and Groq.
 
-This version uses **Streamlit** and a Groq-hosted LLM.
+## Main Feature
 
-## Simple Architecture
+You can now choose how a question should be answered:
 
 ```text
-Upload NOC Documents
-        ↓
-     Chunking
-        ↓
-Simple Keyword RAG
-        ↓
-Retrieved Context
-        ↓
-     Groq LLM
-        ↓
-AI Investigation
+1. LLM Only
+2. Uploaded RAG Only
+3. Both: RAG + LLM
 ```
 
-## What you will learn
+### 1. LLM Only
 
-- How an LLM API is called from Python
-- What RAG means
-- Basic document loading
-- Basic chunking
-- Basic retrieval
-- How retrieved context is passed to an LLM
-- How AI can analyze a network incident
-- How to deploy an AI application on Streamlit Community Cloud
+The question is sent directly to the LLM without using your uploaded RAG documents.
 
-## Files
+This demonstrates a normal LLM question/answer.
+
+**Note:** This option does not mean live internet search. It uses the model's available knowledge, not a real-time web search.
+
+### 2. Uploaded RAG Only
+
+The application searches the uploaded TXT/PDF/DOCX files and displays the retrieved information.
+
+This lets you see what the RAG system actually found before involving the LLM.
+
+### 3. Both: RAG + LLM
+
+The application retrieves relevant information from your uploaded documents and then sends that context to the LLM.
+
+This demonstrates the basic RAG pattern:
+
+```text
+Question
+   ↓
+Retrieve relevant document content
+   ↓
+Add retrieved content to prompt
+   ↓
+LLM
+   ↓
+Answer
+```
+
+## Supported RAG Files
+
+- TXT
+- PDF
+- DOCX
+
+## Project Files
 
 ```text
 AI-NOC-Copilot/
@@ -40,130 +59,74 @@ AI-NOC-Copilot/
 └── README.md
 ```
 
-Only these three files are required.
-
-## RAG File Upload
-
-The application accepts:
-
-- TXT
-- PDF
-- DOCX
-
-Uploaded documents are:
-
-1. Read
-2. Split into simple text chunks
-3. Searched using keyword matching
-4. Relevant chunks are sent to the LLM as context
-
-This is intentionally a simple first RAG implementation. It does not yet use embeddings or a vector database.
-
 ## API Key
 
-This version uses the secret name:
+This project uses Groq.
 
-```text
-GROQ_API_KEY
-```
-
-Do not put the actual API key in `app.py` or GitHub.
-
-## Streamlit Cloud Secrets
-
-In your Streamlit Cloud app:
-
-**Settings → Secrets**
-
-Add:
+Create/configure your Groq API key and add it to Streamlit Cloud Secrets using exactly:
 
 ```toml
 GROQ_API_KEY = "your_actual_groq_api_key"
 ```
 
-The secret name must be exactly:
+Do not commit the API key to GitHub.
 
-```text
-GROQ_API_KEY
-```
+## Streamlit Cloud
 
-## Run Locally
-
-Install dependencies:
-
-```bash
-python3 -m pip install -r requirements.txt
-```
-
-Set your API key.
-
-### Linux/macOS
-
-```bash
-export GROQ_API_KEY="your_api_key_here"
-```
-
-### Windows PowerShell
-
-```powershell
-$env:GROQ_API_KEY="your_api_key_here"
-```
-
-Run:
-
-```bash
-streamlit run app.py
-```
+1. Push `app.py`, `requirements.txt`, and `README.md` to GitHub.
+2. Create/open the Streamlit Cloud application.
+3. Select `app.py` as the main file.
+4. Add `GROQ_API_KEY` under Settings → Secrets.
+5. Deploy/reboot the application.
 
 ## Example Test
 
-Upload the provided NOC test documents and enter:
+Upload a packet-loss/congestion document and ask:
 
 ```text
-Users are experiencing packet loss and high latency.
-The interface utilization is around 95 percent and output drops are increasing.
+What could cause packet loss when interface utilization is around 95 percent?
 ```
 
-The RAG system should retrieve information related to packet loss and congestion.
+Try all three modes:
 
-Another test:
+### LLM Only
 
-```text
-The OSPF neighbor went down and routes learned from that neighbor disappeared.
-```
+The answer comes from the LLM without your uploaded document.
 
-The RAG system should retrieve the OSPF knowledge.
+### Uploaded RAG Only
 
-## What is intentionally NOT included
+You see the relevant text retrieved from your uploaded document.
 
-This beginner version does not include:
+### Both: RAG + LLM
 
-- SSH
-- Physical routers/switches
-- Automatic configuration
-- Network device APIs
-- Vector databases
+You see the retrieved document content and then the LLM explains the answer using that context.
+
+## Important Learning Point
+
+This version intentionally uses simple keyword retrieval.
+
+It does NOT yet use:
+
 - Embeddings
-- Complex workflow engines
-- Automatic remediation
+- Vector databases
+- Semantic search
+- Web search
+- Agents
+- Complex workflows
 
-These can be added later as separate learning steps.
+Those can be added later as separate learning steps.
 
-## Important
+## Future Enhancement: Live Internet Search
 
-This is a learning/demo project.
+If you specifically want:
 
-The AI output is advisory. A real NOC engineer should verify the suggested root cause and recommendations using actual network evidence before taking action.
+```text
+LLM Only
+RAG Only
+Internet + LLM
+RAG + Internet + LLM
+```
 
-## Next Learning Steps
+we can add a web-search API as a separate next step.
 
-After this version works:
-
-1. Understand the current RAG flow.
-2. Test different incidents and documents.
-3. Improve chunking.
-4. Learn embeddings.
-5. Replace keyword search with vector search.
-6. Add better document processing.
-7. Learn RAG evaluation.
-8. Add workflow automation later.
+That is different from "LLM Only": an LLM by itself does not automatically perform live internet searches.
