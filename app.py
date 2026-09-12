@@ -507,6 +507,10 @@ footer {visibility:hidden;}
 .stFileUploader {
   background:#0b0b0b; border:1px dashed #3a3a3a; border-radius:10px; padding:.15rem;
 }
+
+.stTextInput, .stTextArea { margin-bottom:.18rem; }
+form [data-testid="stTextInput"] input,
+form [data-testid="stTextArea"] textarea { color:#f5f5f5 !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -690,33 +694,27 @@ def render_incident_analysis():
 
 def render_network_health():
     st.markdown("### 📊 Network Health")
-    st.caption("Upload a CSV containing network interface metrics. The app analyzes utilization, packet loss, and CRC errors locally.")
+    st.caption("Upload a CSV containing network interface metrics, then generate a health-check summary.")
 
+    st.markdown('<div class="section-label">Upload network health CSV</div>', unsafe_allow_html=True)
     uploaded_csv = st.file_uploader(
-        "Upload network health CSV",
+        "CSV file",
         type=["csv"],
-        help="Use the sample CSV provided with this project, or upload your own CSV with Interface, Utilization, Packet Loss, and CRC Errors columns."
+        help="Required columns: Interface, Utilization, Packet Loss, CRC Errors.",
+        label_visibility="collapsed",
     )
 
-    if uploaded_csv is not None:
-        try:
-            df = pd.read_csv(uploaded_csv)
-        except Exception as e:
-            st.error(f"Could not read the CSV: {e}")
-            return
-        source_label = uploaded_csv.name
-    else:
-        # Keep a small built-in demo dataset so the module remains usable immediately.
-        data = [
-            ("Eth1/1", 92, 0.2, 0),
-            ("Eth1/2", 45, 0.0, 0),
-            ("Eth1/3", 78, 4.5, 125),
-            ("Eth1/4", 35, 0.0, 0),
-        ]
-        df = pd.DataFrame(data, columns=["Interface", "Utilization", "Packet Loss", "CRC Errors"])
-        source_label = "Built-in demo data"
+    if uploaded_csv is None:
+        st.info("Upload a CSV file to begin the health check.")
+        st.caption("Required columns: Interface, Utilization, Packet Loss, CRC Errors")
+        return
 
-    # Normalize common column names.
+    try:
+        df = pd.read_csv(uploaded_csv)
+    except Exception as e:
+        st.error(f"Could not read the CSV: {e}")
+        return
+
     aliases = {
         "interface": "Interface",
         "interface_name": "Interface",
@@ -745,10 +743,33 @@ def render_network_health():
 
     for col in ["Utilization", "Packet Loss", "CRC Errors"]:
         df[col] = pd.to_numeric(
-            df[col].astype(str).str.replace("%", "", regex=False).str.replace(",", "", regex=False),
-            errors="coerce"
+            df[col].astype(str)
+            .str.replace("%", "", regex=False)
+            .str.replace(",", "", regex=False),
+            errors="coerce",
         )
+
+    df["Interface"] = df["Interface"].astype(str).str.strip()
     df = df.dropna(subset=["Interface", "Utilization", "Packet Loss", "CRC Errors"]).copy()
+
+    if df.empty:
+        st.error("The CSV contains no valid network interface records.")
+        return
+
+    st.markdown(
+        f'<div class="status-card">📄 <b>{uploaded_csv.name}</b> &nbsp;•&nbsp; {len(df)} interface record(s) loaded</div>',
+        unsafe_allow_html=True,
+    )
+
+    st.markdown('<div class="section-label">Uploaded Metrics</div>', unsafe_allow_html=True)
+    st.dataframe(df, use_container_width=True, hide_index=True)
+
+    st.markdown("")
+    generate = st.button("📊 Generate Health Check Summary", type="primary", use_container_width=True)
+
+    if not generate:
+        st.caption("Review the uploaded metrics, then click the button above to generate the summary.")
+        return
 
     def health_status(row):
         if row["Packet Loss"] >= 3 or row["CRC Errors"] > 100 or row["Utilization"] >= 95:
@@ -761,95 +782,189 @@ def render_network_health():
 
     critical = df[df["Status"] == "🔴 Investigate"]
     attention = df[df["Status"] == "🟠 Attention"]
+    healthy = df[df["Status"] == "🟢 Healthy"]
 
-    if len(critical) > 0:
+    if len(critical):
         overall = "🔴 Investigate"
-    elif len(attention) > 0:
+    elif len(attention):
         overall = "🟠 Attention"
     else:
         overall = "🟢 Healthy"
 
-    high_util = df.loc[df["Utilization"].idxmax(), "Interface"] if len(df) else "—"
-    error_rows = df[(df["Packet Loss"] > 0) | (df["CRC Errors"] > 0)]
-    error_iface = error_rows.iloc[0]["Interface"] if len(error_rows) else "None"
+    high_util_row = df.loc[df["Utilization"].idxmax()]
+    max_loss_row = df.loc[df["Packet Loss"].idxmax()]
+    max_crc_row = df.loc[df["CRC Errors"].idxmax()]
 
     c1, c2, c3, c4 = st.columns(4)
     with c1:
         st.markdown(f'<div class="health-card"><div class="label">OVERALL HEALTH</div><div class="value">{overall}</div></div>', unsafe_allow_html=True)
     with c2:
-        st.markdown(f'<div class="health-card"><div class="label">HIGH UTILIZATION</div><div class="value">{high_util}</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="health-card"><div class="label">INTERFACES</div><div class="value">{len(df)}</div></div>', unsafe_allow_html=True)
     with c3:
-        st.markdown(f'<div class="health-card"><div class="label">ERROR INDICATOR</div><div class="value">{error_iface}</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="health-card"><div class="label">INVESTIGATE</div><div class="value">{len(critical)}</div></div>', unsafe_allow_html=True)
     with c4:
-        st.markdown(f'<div class="health-card"><div class="label">SOURCE</div><div class="value" style="font-size:.85rem">{source_label}</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="health-card"><div class="label">ATTENTION</div><div class="value">{len(attention)}</div></div>', unsafe_allow_html=True)
 
-    st.markdown("#### Interface Metrics")
-    st.dataframe(df, use_container_width=True, hide_index=True)
+    st.markdown("#### Health Check Summary")
+    summary_parts = [
+        f"**Overall status:** {overall}.",
+        f"**Highest utilization:** {high_util_row['Interface']} at {high_util_row['Utilization']:.1f}%.",
+        f"**Highest packet loss:** {max_loss_row['Interface']} at {max_loss_row['Packet Loss']:.2f}%.",
+        f"**Highest CRC errors:** {max_crc_row['Interface']} with {max_crc_row['CRC Errors']:.0f}.",
+        f"**Healthy interfaces:** {len(healthy)} of {len(df)}.",
+    ]
+    for item in summary_parts:
+        st.write("• " + item)
 
-    insights = []
-    for _, row in critical.iterrows():
-        reasons = []
-        if row["Utilization"] >= 95: reasons.append("very high utilization")
-        if row["Packet Loss"] >= 3: reasons.append("elevated packet loss")
-        if row["CRC Errors"] > 100: reasons.append("high CRC errors")
-        insights.append(f"**{row['Interface']}** — 🔴 investigate: " + ", ".join(reasons) + ".")
-    for _, row in attention.iterrows():
-        reasons = []
-        if row["Utilization"] >= 80: reasons.append("high utilization")
-        if row["Packet Loss"] > 0: reasons.append("packet loss present")
-        if row["CRC Errors"] > 0: reasons.append("CRC errors present")
-        insights.append(f"**{row['Interface']}** — 🟠 attention: " + ", ".join(reasons) + ".")
+    if len(critical):
+        st.markdown("#### 🔴 Interfaces Requiring Investigation")
+        for _, row in critical.iterrows():
+            reasons = []
+            if row["Utilization"] >= 95:
+                reasons.append(f"utilization {row['Utilization']:.1f}%")
+            if row["Packet Loss"] >= 3:
+                reasons.append(f"packet loss {row['Packet Loss']:.2f}%")
+            if row["CRC Errors"] > 100:
+                reasons.append(f"CRC errors {row['CRC Errors']:.0f}")
+            st.write(f"• **{row['Interface']}** — " + ", ".join(reasons) + ".")
 
-    if insights:
-        st.markdown("#### Health Insights")
-        for insight in insights[:6]:
-            st.write("• " + insight)
-    else:
-        st.success("All uploaded interfaces are within the demo health thresholds.")
+    if len(attention):
+        st.markdown("#### 🟠 Interfaces Requiring Attention")
+        for _, row in attention.iterrows():
+            reasons = []
+            if row["Utilization"] >= 80:
+                reasons.append(f"utilization {row['Utilization']:.1f}%")
+            if row["Packet Loss"] > 0:
+                reasons.append(f"packet loss {row['Packet Loss']:.2f}%")
+            if row["CRC Errors"] > 0:
+                reasons.append(f"CRC errors {row['CRC Errors']:.0f}")
+            st.write(f"• **{row['Interface']}** — " + ", ".join(reasons) + ".")
 
-    st.caption("Learning/demo project: thresholds are simplified for demonstration and are not a substitute for real network monitoring.")
+    st.caption("Learning/demo project: health thresholds are simplified for demonstration and should be validated against real network baselines.")
+
 def render_report_generator():
     st.markdown("### 📑 NOC Report Generator")
-    st.caption("Create a structured NOC incident report from information you provide.")
-    with st.form("report_form"):
-        c1,c2=st.columns(2)
-        with c1:
-            incident=st.text_input("Incident","BGP Session Down")
-            protocol=st.text_input("Protocol","BGP")
-            severity=st.selectbox("Severity",["Major","Critical","Minor","Informational"])
-        with c2:
-            impact=st.text_input("Impact","Routes from the peer may be withdrawn")
-            evidence=st.text_input("Evidence / Source","04_bgp_session_down.txt")
-            cause=st.text_input("Probable Cause","IP connectivity or interface/transport problem")
-        summary=st.text_area("Incident Summary","BGP peer session changed from Established to Idle/Active.",height=65)
-        checks=st.text_area("Recommended Checks","1. Check BGP neighbor state\n2. Check peer reachability\n3. Review logs\n4. Check recent configuration changes",height=80)
-        generate=st.form_submit_button("📄 Generate Report",type="primary")
-    if generate:
-        report=f"""# NOC INCIDENT REPORT
+    st.caption("Enter the details of a network incident and generate a structured NOC incident report.")
 
-**Incident:** {incident}
-**Protocol:** {protocol}
-**Severity:** {severity}
-**Impact:** {impact}
-**Evidence / Source:** {evidence}
+    with st.form("report_form"):
+        st.markdown('<div class="section-label">Incident Details</div>', unsafe_allow_html=True)
+
+        st.markdown("**Incident Subject**")
+        incident_subject = st.text_input(
+            "Incident Subject",
+            placeholder="Example: BGP Session Down between PE1 and PE2",
+            label_visibility="collapsed",
+        )
+
+        st.markdown("**Incident Summary**")
+        incident_summary = st.text_area(
+            "Incident Summary",
+            placeholder="Describe what happened, what was observed, and the impact.",
+            height=75,
+            label_visibility="collapsed",
+        )
+
+        c1, c2 = st.columns(2)
+        with c1:
+            st.markdown("**Incident Start Time**")
+            start_time = st.text_input(
+                "Incident Start Time",
+                placeholder="Example: 2026-09-12 10:30 PKT",
+                label_visibility="collapsed",
+            )
+        with c2:
+            st.markdown("**Incident End Time**")
+            end_time = st.text_input(
+                "Incident End Time",
+                placeholder="Example: 2026-09-12 11:15 PKT",
+                label_visibility="collapsed",
+            )
+
+        st.markdown("**Root Cause of Incident**")
+        root_cause = st.text_area(
+            "Root Cause",
+            placeholder="Describe the confirmed or probable root cause. If not confirmed, state that clearly.",
+            height=75,
+            label_visibility="collapsed",
+        )
+
+        st.markdown("**Services Impacted**")
+        services_impacted = st.text_area(
+            "Services Impacted",
+            placeholder="Example: Internet access, IP transit, BGP routes, customer VPN services",
+            height=65,
+            label_visibility="collapsed",
+        )
+
+        st.markdown("**Recommendations / Checks**")
+        recommendations = st.text_area(
+            "Recommendations",
+            placeholder="List recommended checks, corrective actions, or follow-up items.",
+            height=85,
+            label_visibility="collapsed",
+        )
+
+        generate = st.form_submit_button(
+            "📄 Generate Incident Report",
+            type="primary",
+            use_container_width=True,
+        )
+
+    if generate:
+        required_fields = {
+            "Incident Subject": incident_subject,
+            "Incident Summary": incident_summary,
+            "Incident Start Time": start_time,
+            "Incident End Time": end_time,
+            "Root Cause": root_cause,
+            "Services Impacted": services_impacted,
+            "Recommendations / Checks": recommendations,
+        }
+        missing = [name for name, value in required_fields.items() if not value.strip()]
+        if missing:
+            st.warning("Please complete: " + ", ".join(missing))
+            return
+
+        report = f"""# NOC INCIDENT REPORT
+
+## Incident Subject
+{incident_subject}
 
 ## Incident Summary
-{summary}
+{incident_summary}
 
-## Probable Cause
-{cause}
+## Incident Start Time
+{start_time}
 
-## Recommended Checks
-{checks}
+## Incident End Time
+{end_time}
+
+## Root Cause of Incident
+{root_cause}
+
+## Services Impacted
+{services_impacted}
+
+## Recommendations / Checks
+{recommendations}
 
 ---
-AI-NOC Copilot — Learning/Demo Project
+**AI-NOC Copilot**
+Learning / Demo Project
 """
-        st.markdown("#### Generated Report")
-        st.markdown('<div class="report-box">',unsafe_allow_html=True)
+
+        st.markdown("#### Generated NOC Incident Report")
+        st.markdown('<div class="report-box">', unsafe_allow_html=True)
         st.markdown(report)
-        st.markdown('</div>',unsafe_allow_html=True)
-        st.download_button("⬇️ Download Report",report,file_name="noc_incident_report.md",mime="text/markdown")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        st.download_button(
+            "⬇️ Download Incident Report",
+            report,
+            file_name="noc_incident_report.md",
+            mime="text/markdown",
+            use_container_width=True,
+        )
 
 if module=="📊 Network Health":
     render_network_health()
