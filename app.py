@@ -377,6 +377,44 @@ def clear_results():
 # =========================================================
 st.set_page_config(page_title="AI-NOC Copilot", page_icon="🤖", layout="centered")
 
+
+
+# --- Polished UI ---
+st.markdown("""
+<style>
+.block-container {max-width: 1150px; padding-top: 1.8rem; padding-bottom: 3rem;}
+.hero {
+    padding: 1.5rem 1.7rem; border: 1px solid rgba(128,128,128,.18);
+    border-radius: 18px; margin-bottom: 1.25rem;
+    background: linear-gradient(135deg, rgba(70,90,140,.10), rgba(70,140,120,.07));
+}
+.hero h1 {margin:0 0 .35rem 0; font-size: 2.05rem;}
+.hero p {margin:0; opacity:.78; font-size:1rem;}
+.section-title {font-weight:700; font-size:1.08rem; margin:1.1rem 0 .45rem;}
+.status {
+    border-radius: 12px; padding: .75rem 1rem; margin:.5rem 0 1rem;
+    border:1px solid rgba(128,128,128,.18);
+}
+.answer-card {
+    border:1px solid rgba(128,128,128,.18); border-radius:16px;
+    padding:1rem 1.1rem; margin-top:.65rem;
+}
+.answer-card h4 {margin-top:0;}
+.small-muted {opacity:.65; font-size:.88rem;}
+div[data-testid="stRadio"] > div {gap: .45rem;}
+div[data-testid="stRadio"] label {
+    border:1px solid rgba(128,128,128,.20); border-radius:12px;
+    padding:.35rem .7rem; 
+}
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown("""
+<div class="hero">
+  <h1>🤖 AI-NOC Copilot</h1>
+  <p>Lightweight AI assistant for NOC incident analysis • RAG + AI comparison</p>
+</div>
+""", unsafe_allow_html=True)
 for key, default in {
     "question": "",
     "answer": "",
@@ -480,17 +518,17 @@ question = st.text_area(
 mode = st.radio(
     "How should the answer be generated?",
     [
-        "🧠 General AI",
-        "📚 Search My Documents",
-        "🤖 Documents + AI",
+        "🧠 AI Response",
+        "📚 RAG Response",
+        "🔍 RAG + AI Comparison",
     ],
     index=2,
 )
 
 st.caption(
-    "🧠 General AI = model knowledge. "
-    "📚 Search My Documents = retrieved RAG content only. "
-    "🤖 Documents + AI = RAG context + LLM explanation."
+    "🧠 AI Response = model knowledge. "
+    "📚 RAG Response = retrieved RAG content only. "
+    "🔍 RAG + AI Comparison = RAG context + LLM explanation."
 )
 
 col1, col2 = st.columns(2)
@@ -517,7 +555,7 @@ if analyze:
     st.session_state.rag_results = []
     st.session_state.error = ""
 
-    if mode == "🧠 General AI":
+    if mode == "🧠 AI Response":
         with st.spinner("Generating General AI response..."):
             answer, error = call_llm(q)
 
@@ -526,7 +564,7 @@ if analyze:
         else:
             st.session_state.answer = answer
 
-    elif mode == "📚 Search My Documents":
+    elif mode == "📚 RAG Response":
         if not rag_chunks:
             st.session_state.error = "Please load RAG documents first."
         else:
