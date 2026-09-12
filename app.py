@@ -373,10 +373,6 @@ def clear_results():
 
 
 # =========================================================
-# 6. UI
-# =========================================================
-st.set_page_config(page_title="AI-NOC Copilot", page_icon="🤖", layout="wide")
-
 
 def classify_incident(question):
     """Lightweight rule-based incident classification for the learning/demo app."""
@@ -432,157 +428,9 @@ def classify_incident(question):
     }
 
 
-st.markdown("""
-<style>
-/* Compact NOC dashboard — dark background with high-contrast controls */
-.stApp { background:#030303; color:#f5f5f5; }
-[data-testid="stHeader"] { background:rgba(0,0,0,0); }
-.block-container { max-width:1480px; padding:0.65rem 1.6rem 0.35rem; }
-
-.hero {
-  background:radial-gradient(circle at 82% 50%, rgba(50,120,180,.16), transparent 34%),
-             linear-gradient(135deg,#101010 0%,#070707 100%);
-  border:1px solid #292929; border-radius:16px;
-  padding:.85rem 1.2rem; margin-bottom:.55rem;
-  min-height:130px; display:flex; align-items:center; justify-content:space-between;
-  gap:1.2rem; overflow:hidden;
-}
-.hero-copy { min-width:420px; }
-.hero-kicker { color:#70c8ff; font-size:.68rem; letter-spacing:.13em; font-weight:700; margin-bottom:.18rem; }
-.hero h1 { margin:0; font-size:1.75rem; letter-spacing:-.025em; color:#fff; }
-.hero p { margin:.18rem 0 .35rem; color:#a9a9a9; font-size:.84rem; }
-.hero-pills { display:flex; gap:.35rem; flex-wrap:wrap; }
-.hero-pills span { border:1px solid #2d3b46; border-radius:999px; padding:.16rem .45rem; color:#a8d9f8; font-size:.66rem; }
-.noc-visual { width:430px; flex:0 0 430px; opacity:.95; }
-
-.section-label { color:#d0d0d0; font-size:.73rem; text-transform:uppercase; letter-spacing:.1em; margin:.25rem 0 .2rem; font-weight:700; }
-
-.status-card {
-  background:#090909; border:1px solid #292929; border-radius:10px;
-  padding:.43rem .65rem; color:#c8c8c8; font-size:.77rem; margin-bottom:.28rem;
-}
-
-div[data-testid="stTextArea"] textarea {
-  background:#0b0b0b !important; color:#f7f7f7 !important;
-  border:1px solid #3a3a3a !important; border-radius:10px !important;
-  min-height:62px !important;
-}
-div[data-testid="stTextArea"] textarea::placeholder { color:#9b9b9b !important; opacity:1 !important; }
-
-/* High-contrast answer-mode controls */
-div[data-testid="stRadio"] > div { gap:.42rem; }
-div[data-testid="stRadio"] label {
-  background:#111 !important; border:1px solid #3a3a3a !important;
-  border-radius:10px !important; padding:.28rem .62rem !important;
-  color:#f0f0f0 !important; opacity:1 !important;
-}
-div[data-testid="stRadio"] label p,
-div[data-testid="stRadio"] label span,
-div[data-testid="stRadio"] label div { color:#f0f0f0 !important; opacity:1 !important; }
-div[data-testid="stRadio"] label:hover { border-color:#6aaed6 !important; }
-div[data-testid="stRadio"] input:checked + div { color:#fff !important; }
-
-div[data-testid="stButton"] button {
-  border-radius:10px; min-height:2.25rem; font-weight:700;
-  border:1px solid #383838;
-}
-div[data-testid="stButton"] button p { color:#fff !important; }
-div[data-testid="stButton"] button[kind="primary"] p { color:#fff !important; }
-
-/* Keep the source filename from overflowing the viewport */
-.source-caption { color:#777; font-size:.68rem; text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding-top:.45rem; }
-
-.result-title { font-size:.96rem; font-weight:750; margin-bottom:.2rem; color:#f5f5f5; }
-.result-sub { color:#8f8f8f; font-size:.71rem; margin-bottom:.35rem; }
-.compare-note { color:#777; font-size:.68rem; margin-top:.25rem; }
-div[data-testid="stVerticalBlockBorderWrapper"] { border-color:#292929 !important; background:#070707; border-radius:12px; }
-
-footer { visibility:hidden; }
-
-.class-card {
-  background:#0b0b0b; border:1px solid #2b2b2b; border-radius:10px;
-  padding:.45rem .65rem; min-height:50px;
-}
-.class-card span {display:block; color:#777; font-size:.62rem; letter-spacing:.1em; font-weight:700;}
-.class-card strong {display:block; color:#f5f5f5; font-size:.82rem; margin-top:.12rem;}
-</style>
-""", unsafe_allow_html=True)
-
-st.markdown("""
-<div class="hero">
-  <div class="hero-copy">
-    <div class="hero-kicker">NETWORK OPERATIONS • AI ASSISTANT</div>
-    <h1>🤖 AI-NOC Copilot</h1>
-    <p>AI + RAG incident analysis • lightweight learning & demo project</p>
-    <div class="hero-pills">
-      <span>● RAG</span><span>● AI Analysis</span><span>● NOC Evidence</span>
-    </div>
-  </div>
-  <div class="noc-visual" aria-hidden="true">
-    <svg viewBox="0 0 500 170" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="lineGlow" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stop-color="#4da3ff" stop-opacity=".25"/>
-          <stop offset=".5" stop-color="#70e1ff" stop-opacity=".9"/>
-          <stop offset="1" stop-color="#4da3ff" stop-opacity=".25"/>
-        </linearGradient>
-      </defs>
-      <g fill="none" stroke="url(#lineGlow)" stroke-width="2">
-        <path d="M58 85 L165 45 L250 85 L335 42 L442 84"/>
-        <path d="M58 85 L165 125 L250 85 L335 128 L442 84"/>
-        <path d="M165 45 L165 125"/>
-        <path d="M335 42 L335 128"/>
-      </g>
-      <g fill="#0c0c0c" stroke="#5eb8ff" stroke-width="2">
-        <rect x="34" y="61" width="48" height="48" rx="10"/>
-        <rect x="141" y="21" width="48" height="48" rx="10"/>
-        <rect x="141" y="101" width="48" height="48" rx="10"/>
-        <rect x="226" y="61" width="48" height="48" rx="10"/>
-        <rect x="311" y="18" width="48" height="48" rx="10"/>
-        <rect x="311" y="104" width="48" height="48" rx="10"/>
-        <rect x="418" y="60" width="48" height="48" rx="10"/>
-      </g>
-      <g fill="#dff5ff" font-family="Arial, sans-serif" font-size="9" text-anchor="middle">
-        <text x="58" y="89">EDGE</text>
-        <text x="165" y="49">R1</text><text x="165" y="129">R2</text>
-        <text x="250" y="89">CORE</text>
-        <text x="335" y="46">R3</text><text x="335" y="132">R4</text>
-        <text x="442" y="88">NOC</text>
-      </g>
-      <circle cx="250" cy="85" r="7" fill="#70e1ff" opacity=".25"/>
-      <circle cx="250" cy="85" r="3.5" fill="#70e1ff"/>
-    </svg>
-  </div>
-</div>
-""", unsafe_allow_html=True)
-
-for key, default in {
-    "question": "", "answer": "", "rag_results": [], "error": "",
-    "drive_chunks": [], "drive_files": [],
-}.items():
-    if key not in st.session_state:
-        st.session_state[key] = default
-
-# Fixed knowledge source: no repeated upload or link entry.
-try:
-    with st.spinner("Loading NOC knowledge base..."):
-        rag_chunks, drive_files = load_google_drive(FIXED_GOOGLE_DRIVE_URL)
-    st.session_state.drive_chunks = rag_chunks
-    st.session_state.drive_files = drive_files
-    status_text = f"● NOC knowledge ready  •  {len(drive_files)} docs  •  {len(rag_chunks)} chunks"
-except Exception as exc:
-    rag_chunks = st.session_state.get("drive_chunks", [])
-    drive_files = st.session_state.get("drive_files", [])
-    status_text = f"⚠ Knowledge base: {exc}"
-
-st.markdown(f'<div class="status-card">{status_text}</div>', unsafe_allow_html=True)
-
-st.markdown('<div class="section-label">Ask your NOC question</div>', unsafe_allow_html=True)
-
-# =========================
-# AI-NOC Copilot UI
-# =========================
-
+# =========================================================
+# 6. UI — modular NOC dashboard
+# =========================================================
 st.set_page_config(
     page_title="AI-NOC Copilot",
     page_icon="🤖",
@@ -594,79 +442,94 @@ st.markdown("""
 <style>
 .stApp { background:#030303; color:#f5f5f5; }
 [data-testid="stHeader"] { background:rgba(0,0,0,0); }
-.block-container { max-width:1480px; padding:.7rem 1.35rem .5rem; }
-[data-testid="stSidebar"] { background:#080808; border-right:1px solid #242424; }
+.block-container { max-width:1500px; padding:.55rem 1.25rem .35rem; }
+[data-testid="stSidebar"] { background:#070707; border-right:1px solid #252525; }
 [data-testid="stSidebar"] * { color:#f2f2f2; }
-.module-card {
-  background:#0b0b0b; border:1px solid #292929; border-radius:14px;
-  padding:1rem; margin-bottom:.65rem;
-}
-.module-card h3 { margin:0 0 .25rem; font-size:1rem; }
-.module-card p { margin:0; color:#929292; font-size:.78rem; line-height:1.35; }
+
 .hero {
   background:radial-gradient(circle at 82% 50%, rgba(50,120,180,.16), transparent 34%),
              linear-gradient(135deg,#101010,#070707);
   border:1px solid #292929; border-radius:16px;
-  padding:.75rem 1.1rem; margin-bottom:.6rem;
+  padding:.65rem 1rem; margin-bottom:.5rem;
   min-height:112px; display:flex; align-items:center; justify-content:space-between;
   overflow:hidden;
 }
-.hero h1 {margin:0;font-size:1.7rem;color:#fff;}
-.hero p {margin:.15rem 0 0;color:#999;font-size:.82rem;}
-.hero-kicker {color:#70c8ff;font-size:.65rem;letter-spacing:.12em;font-weight:700;}
-.noc-visual {width:390px;flex:0 0 390px;}
-.section-label {color:#d0d0d0;font-size:.72rem;text-transform:uppercase;letter-spacing:.1em;margin:.3rem 0 .2rem;font-weight:700;}
-div[data-testid="stRadio"] label {
-  background:#111 !important;border:1px solid #3b3b3b !important;
-  border-radius:10px !important;padding:.28rem .58rem !important;color:#fff !important;
+.hero h1 {margin:0;font-size:1.65rem;color:#fff;}
+.hero p {margin:.12rem 0 0;color:#999;font-size:.78rem;}
+.hero-kicker {color:#70c8ff;font-size:.62rem;letter-spacing:.12em;font-weight:700;}
+.noc-visual {width:400px;flex:0 0 400px;}
+
+.sidebar-brand {font-size:1.05rem;font-weight:800;margin-bottom:.15rem;}
+.sidebar-sub {color:#8d8d8d;font-size:.74rem;margin-bottom:.7rem;}
+.module-note {
+  background:#0c0c0c;border:1px solid #282828;border-radius:10px;
+  padding:.55rem .65rem;margin-top:.7rem;color:#999;font-size:.7rem;line-height:1.35;
 }
-div[data-testid="stRadio"] label p, div[data-testid="stRadio"] label span,
-div[data-testid="stRadio"] label div {color:#fff !important;opacity:1 !important;}
+.section-label {color:#d0d0d0;font-size:.69rem;text-transform:uppercase;letter-spacing:.1em;margin:.22rem 0 .18rem;font-weight:700;}
+.status-card {
+  background:#090909;border:1px solid #292929;border-radius:9px;
+  padding:.38rem .6rem;color:#c8c8c8;font-size:.73rem;margin-bottom:.25rem;
+}
 div[data-testid="stTextArea"] textarea {
   background:#0b0b0b !important;color:#f7f7f7 !important;
   border:1px solid #3a3a3a !important;border-radius:10px !important;
+  min-height:60px !important;
 }
-div[data-testid="stTextInput"] input {
-  background:#0b0b0b !important;color:#f7f7f7 !important;
-  border:1px solid #3a3a3a !important;
+div[data-testid="stTextArea"] textarea::placeholder {color:#9b9b9b !important;opacity:1 !important;}
+div[data-testid="stRadio"] > div {gap:.35rem;}
+div[data-testid="stRadio"] label {
+  background:#111 !important;border:1px solid #3a3a3a !important;
+  border-radius:10px !important;padding:.25rem .55rem !important;color:#fff !important;opacity:1 !important;
 }
-div[data-testid="stButton"] button {border-radius:10px;font-weight:700;min-height:2.2rem;}
+div[data-testid="stRadio"] label p, div[data-testid="stRadio"] label span,
+div[data-testid="stRadio"] label div {color:#fff !important;opacity:1 !important;}
+div[data-testid="stButton"] button {border-radius:10px;min-height:2.15rem;font-weight:700;}
+div[data-testid="stButton"] button p {color:#fff !important;}
 .class-card {
-  background:#0b0b0b;border:1px solid #2b2b2b;border-radius:10px;padding:.45rem .65rem;
+  background:#0b0b0b;border:1px solid #2b2b2b;border-radius:9px;padding:.4rem .6rem;min-height:48px;
 }
-.class-card span {display:block;color:#777;font-size:.61rem;letter-spacing:.1em;font-weight:700;}
-.class-card strong {display:block;color:#f5f5f5;font-size:.82rem;margin-top:.12rem;}
+.class-card span {display:block;color:#777;font-size:.59rem;letter-spacing:.1em;font-weight:700;}
+.class-card strong {display:block;color:#f5f5f5;font-size:.79rem;margin-top:.1rem;}
+.source-caption {color:#777;font-size:.66rem;text-align:right;padding-top:.42rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.result-title {font-size:.92rem;font-weight:750;margin-bottom:.15rem;color:#f5f5f5;}
+.result-sub {color:#8f8f8f;font-size:.69rem;margin-bottom:.3rem;}
+.compare-note {color:#777;font-size:.66rem;margin-top:.2rem;}
 .health-card {
-  background:#0b0b0b;border:1px solid #292929;border-radius:14px;
-  padding:.85rem 1rem;min-height:105px;
+  background:#0b0b0b;border:1px solid #292929;border-radius:12px;
+  padding:.75rem .85rem;min-height:92px;
 }
-.health-card .label {color:#777;font-size:.64rem;letter-spacing:.1em;font-weight:700;}
-.health-card .value {color:#fff;font-size:1.35rem;font-weight:800;margin-top:.2rem;}
-.metric-table {background:#0b0b0b;border:1px solid #292929;border-radius:12px;padding:.75rem;}
-.report-box {background:#0b0b0b;border:1px solid #292929;border-radius:14px;padding:1rem;}
+.health-card .label {color:#777;font-size:.6rem;letter-spacing:.1em;font-weight:700;}
+.health-card .value {color:#fff;font-size:1.15rem;font-weight:800;margin-top:.15rem;}
+.report-box {background:#0b0b0b;border:1px solid #292929;border-radius:12px;padding:.85rem;}
+footer {visibility:hidden;}
 </style>
 """, unsafe_allow_html=True)
 
-# Sidebar module navigation
+# Sidebar: one module list only (no duplicate explanatory cards).
 with st.sidebar:
-    st.markdown("## 🤖 AI-NOC Copilot")
-    st.caption("AI-powered NOC learning & analysis")
+    st.markdown('<div class="sidebar-brand">🤖 AI-NOC Copilot</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-sub">AI-powered NOC learning & analysis</div>', unsafe_allow_html=True)
     st.markdown("---")
     st.markdown("### MODULES")
     module = st.radio(
-        "Select module",
+        "Module",
         ["🚨 Incident Analysis", "📊 Network Health", "📑 NOC Report Generator"],
+        index=0,
         label_visibility="collapsed",
     )
     st.markdown("---")
+    descriptions = {
+        "🚨 Incident Analysis": "Investigate incidents using AI + your NOC knowledge base.",
+        "📊 Network Health": "Review network metrics and identify potential issues.",
+        "📑 NOC Report Generator": "Create a structured incident report from analysis.",
+    }
     st.markdown(
-        '<div class="module-card"><h3>🚨 Incident Analysis</h3><p>Investigate incidents using AI + your NOC knowledge base.</p></div>'
-        '<div class="module-card"><h3>📊 Network Health</h3><p>Review sample network metrics and identify potential issues.</p></div>'
-        '<div class="module-card"><h3>📑 NOC Report Generator</h3><p>Create a structured incident report from an analysis.</p></div>',
+        f'<div class="module-note"><b>{module}</b><br>{descriptions[module]}</div>',
         unsafe_allow_html=True,
     )
     st.caption("Learning / Demo Project")
 
+# One topology banner only.
 st.markdown("""
 <div class="hero">
   <div>
@@ -696,27 +559,148 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+# Session state
+for key, default in {
+    "question": "", "answer": "", "rag_results": [], "error": "",
+    "drive_chunks": [], "drive_files": [],
+}.items():
+    if key not in st.session_state:
+        st.session_state[key] = default
+
+def render_incident_analysis():
+    try:
+        with st.spinner("Loading NOC knowledge base..."):
+            rag_chunks, drive_files = load_google_drive(FIXED_GOOGLE_DRIVE_URL)
+        st.session_state.drive_chunks = rag_chunks
+        st.session_state.drive_files = drive_files
+        status_text = f"● NOC knowledge ready  •  {len(drive_files)} docs  •  {len(rag_chunks)} chunks"
+    except Exception as exc:
+        rag_chunks = st.session_state.get("drive_chunks", [])
+        drive_files = st.session_state.get("drive_files", [])
+        status_text = f"⚠ Knowledge base: {exc}"
+
+    st.markdown(f'<div class="status-card">{status_text}</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-label">Ask your NOC question</div>', unsafe_allow_html=True)
+    question = st.text_area(
+        "Question", value=st.session_state.question,
+        placeholder="Example: What can cause a BGP session to go down?",
+        height=68, label_visibility="collapsed",
+    )
+
+    info = classify_incident(question) if question.strip() else {"protocol":"—","incident":"—","category":"—"}
+    st.markdown('<div class="section-label">Automatic incident classification</div>', unsafe_allow_html=True)
+    c1,c2,c3=st.columns(3)
+    with c1:
+        st.markdown(f'<div class="class-card"><span>PROTOCOL</span><strong>{info["protocol"]}</strong></div>', unsafe_allow_html=True)
+    with c2:
+        st.markdown(f'<div class="class-card"><span>INCIDENT</span><strong>{info["incident"]}</strong></div>', unsafe_allow_html=True)
+    with c3:
+        st.markdown(f'<div class="class-card"><span>CATEGORY</span><strong>{info["category"]}</strong></div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="section-label">Choose answer mode</div>', unsafe_allow_html=True)
+    mode = st.radio(
+        "Answer mode",
+        ["🧠 AI Response", "📚 RAG Response", "🔍 RAG + AI Comparison"],
+        index=0, horizontal=True, label_visibility="collapsed",
+    )
+    c1,c2,c3=st.columns([1.35,1,1])
+    with c1:
+        analyze=st.button("🚀 Analyze Incident",type="primary",use_container_width=True)
+    with c2:
+        clear=st.button("🗑️ Clear",use_container_width=True)
+    with c3:
+        if drive_files:
+            st.markdown(f'<div class="source-caption">📁 Fixed Google Drive • {len(drive_files)} documents</div>',unsafe_allow_html=True)
+
+    if clear:
+        clear_results()
+        st.rerun()
+
+    if analyze:
+        q=question.strip()
+        if not q:
+            st.warning("Enter a NOC question first.")
+            return
+        st.session_state.question=q
+        st.session_state.answer=""
+        st.session_state.rag_results=[]
+        st.session_state.error=""
+
+        if mode=="🧠 AI Response":
+            with st.spinner("Generating AI response..."):
+                answer,error=call_llm(q)
+            if error: st.session_state.error=error
+            else: st.session_state.answer=answer
+        elif mode=="📚 RAG Response":
+            if not rag_chunks:
+                st.session_state.error="No RAG documents are available."
+            else:
+                results=retrieve_knowledge(q,rag_chunks)
+                st.session_state.rag_results=results
+                if not results:
+                    st.session_state.error="No relevant content was found in the NOC knowledge base."
+        else:
+            if not rag_chunks:
+                st.session_state.error="No RAG documents are available."
+            else:
+                results=retrieve_knowledge(q,rag_chunks)
+                st.session_state.rag_results=results
+                context="\n\n".join(f"SOURCE: {x['source']}\n{x['text']}" for x in results)
+                with st.spinner("Comparing RAG evidence with AI reasoning..."):
+                    answer,error=call_llm(q,rag_context=context if context else None)
+                if error: st.session_state.error=error
+                else: st.session_state.answer=answer
+
+    if st.session_state.error:
+        st.error(st.session_state.error)
+    rag=st.session_state.rag_results
+    ans=st.session_state.answer
+    if mode=="🔍 RAG + AI Comparison" and (rag or ans):
+        left,right=st.columns(2,gap="medium")
+        with left:
+            st.markdown('<div class="result-title">📚 RAG Evidence</div><div class="result-sub">What your NOC documents say</div>',unsafe_allow_html=True)
+            with st.container(height=290,border=True):
+                if rag:
+                    for item in rag:
+                        st.markdown(f"**{item['source']}**")
+                        st.write(item["text"])
+                else: st.info("No matching RAG evidence.")
+        with right:
+            st.markdown('<div class="result-title">🧠 AI Explanation</div><div class="result-sub">LLM explanation grounded in retrieved evidence</div>',unsafe_allow_html=True)
+            with st.container(height=290,border=True):
+                if ans: st.markdown(ans)
+                else: st.info("No AI response.")
+    elif rag:
+        st.markdown('<div class="result-title">📚 RAG Retrieved Result</div><div class="result-sub">Focused evidence from your NOC knowledge base</div>',unsafe_allow_html=True)
+        with st.container(height=290,border=True):
+            for item in rag:
+                st.markdown(f"**{item['source']}**")
+                st.write(item["text"])
+    elif ans:
+        st.markdown('<div class="result-title">🧠 AI Response</div><div class="result-sub">Generated from general model knowledge</div>',unsafe_allow_html=True)
+        with st.container(height=290,border=True):
+            st.markdown(ans)
+
+    st.markdown('<div class="compare-note">Learning/demo project — verify AI answers against real network evidence before operational use.</div>',unsafe_allow_html=True)
+
 def render_network_health():
     st.markdown("### 📊 Network Health")
-    st.caption("Beginner-friendly analysis of simulated network performance data — no router/SSH access required.")
-    data = [
+    st.caption("Review simulated network performance data and identify potential issues.")
+    import pandas as pd
+    data=[
         ("Eth1/1","92%","0.2%","0","🟠 Attention"),
         ("Eth1/2","45%","0%","0","🟢 Healthy"),
         ("Eth1/3","78%","4.5%","125","🔴 Investigate"),
         ("Eth1/4","35%","0%","0","🟢 Healthy"),
     ]
-    import pandas as pd
-    df = pd.DataFrame(data, columns=["Interface","Utilization","Packet Loss","CRC Errors","Status"])
+    df=pd.DataFrame(data,columns=["Interface","Utilization","Packet Loss","CRC Errors","Status"])
     c1,c2,c3=st.columns(3)
-    with c1:
-        st.markdown('<div class="health-card"><div class="label">OVERALL HEALTH</div><div class="value">🟠 Attention</div></div>', unsafe_allow_html=True)
-    with c2:
-        st.markdown('<div class="health-card"><div class="label">HIGH UTILIZATION</div><div class="value">Eth1/1</div></div>', unsafe_allow_html=True)
-    with c3:
-        st.markdown('<div class="health-card"><div class="label">ERROR INDICATOR</div><div class="value">Eth1/3</div></div>', unsafe_allow_html=True)
+    with c1: st.markdown('<div class="health-card"><div class="label">OVERALL HEALTH</div><div class="value">🟠 Attention</div></div>',unsafe_allow_html=True)
+    with c2: st.markdown('<div class="health-card"><div class="label">HIGH UTILIZATION</div><div class="value">Eth1/1</div></div>',unsafe_allow_html=True)
+    with c3: st.markdown('<div class="health-card"><div class="label">ERROR INDICATOR</div><div class="value">Eth1/3</div></div>',unsafe_allow_html=True)
     st.markdown("#### Interface Metrics")
-    st.dataframe(df, use_container_width=True, hide_index=True)
-    st.info("Demo insight: Eth1/3 deserves investigation because packet loss and CRC errors are elevated. Eth1/1 is approaching high utilization. These are simulated values for the learning project.")
+    st.dataframe(df,use_container_width=True,hide_index=True)
+    st.info("Demo insight: Eth1/3 deserves investigation because packet loss and CRC errors are elevated. Eth1/1 is approaching high utilization. These are simulated values.")
 
 def render_report_generator():
     st.markdown("### 📑 NOC Report Generator")
@@ -724,16 +708,16 @@ def render_report_generator():
     with st.form("report_form"):
         c1,c2=st.columns(2)
         with c1:
-            incident=st.text_input("Incident", "BGP Session Down")
-            protocol=st.text_input("Protocol", "BGP")
-            severity=st.selectbox("Severity", ["Major","Critical","Minor","Informational"])
+            incident=st.text_input("Incident","BGP Session Down")
+            protocol=st.text_input("Protocol","BGP")
+            severity=st.selectbox("Severity",["Major","Critical","Minor","Informational"])
         with c2:
-            impact=st.text_input("Impact", "Routes from the peer may be withdrawn")
-            evidence=st.text_input("Evidence / Source", "04_bgp_session_down.txt")
-            cause=st.text_input("Probable Cause", "IP connectivity or interface/transport problem")
-        summary=st.text_area("Incident Summary", "BGP peer session changed from Established to Idle/Active.", height=70)
-        checks=st.text_area("Recommended Checks", "1. Check BGP neighbor state\n2. Check peer reachability\n3. Review logs\n4. Check recent configuration changes", height=90)
-        generate=st.form_submit_button("📄 Generate Report", type="primary")
+            impact=st.text_input("Impact","Routes from the peer may be withdrawn")
+            evidence=st.text_input("Evidence / Source","04_bgp_session_down.txt")
+            cause=st.text_input("Probable Cause","IP connectivity or interface/transport problem")
+        summary=st.text_area("Incident Summary","BGP peer session changed from Established to Idle/Active.",height=65)
+        checks=st.text_area("Recommended Checks","1. Check BGP neighbor state\n2. Check peer reachability\n3. Review logs\n4. Check recent configuration changes",height=80)
+        generate=st.form_submit_button("📄 Generate Report",type="primary")
     if generate:
         report=f"""# NOC INCIDENT REPORT
 
@@ -756,115 +740,14 @@ def render_report_generator():
 AI-NOC Copilot — Learning/Demo Project
 """
         st.markdown("#### Generated Report")
-        st.markdown('<div class="report-box">', unsafe_allow_html=True)
+        st.markdown('<div class="report-box">',unsafe_allow_html=True)
         st.markdown(report)
-        st.markdown('</div>', unsafe_allow_html=True)
-        st.download_button("⬇️ Download Report", report, file_name="noc_incident_report.md", mime="text/markdown")
+        st.markdown('</div>',unsafe_allow_html=True)
+        st.download_button("⬇️ Download Report",report,file_name="noc_incident_report.md",mime="text/markdown")
 
-if module == "📊 Network Health":
+if module=="📊 Network Health":
     render_network_health()
-elif module == "📑 NOC Report Generator":
+elif module=="📑 NOC Report Generator":
     render_report_generator()
 else:
-    # Existing Incident Analysis module from v12
-    question = st.text_area(
-        "Question", value=st.session_state.question,
-        placeholder="Example: What can cause a BGP session to go down?",
-        height=68, label_visibility="collapsed"
-    )
-
-    st.markdown('<div class="section-label">Choose answer mode</div>', unsafe_allow_html=True)
-    mode = st.radio(
-        "Answer mode",
-        ["🧠 AI Response", "📚 RAG Response", "🔍 RAG + AI Comparison"],
-        index=0, horizontal=True, label_visibility="collapsed"
-    )
-
-    c1, c2, c3 = st.columns([1.5, 1, 1])
-    with c1:
-        analyze = st.button("🚀 Analyze Incident", type="primary", use_container_width=True)
-    with c2:
-        clear = st.button("🗑️ Clear", use_container_width=True)
-    with c3:
-        if drive_files:
-            st.markdown(f'<div class="source-caption">📁 Fixed Google Drive • {len(drive_files)} documents</div>', unsafe_allow_html=True)
-
-    if clear:
-        clear_results()
-        st.rerun()
-
-    if analyze:
-        q = question.strip()
-        if not q:
-            st.warning("Enter a NOC question first.")
-            st.stop()
-
-        st.session_state.question = q
-        st.session_state.answer = ""
-        st.session_state.rag_results = []
-        st.session_state.error = ""
-
-        if mode == "🧠 AI Response":
-            with st.spinner("Generating AI response..."):
-                answer, error = call_llm(q)
-            if error: st.session_state.error = error
-            else: st.session_state.answer = answer
-
-        elif mode == "📚 RAG Response":
-            if not rag_chunks:
-                st.session_state.error = "No RAG documents are available."
-            else:
-                results = retrieve_knowledge(q, rag_chunks)
-                st.session_state.rag_results = results
-                if not results:
-                    st.session_state.error = "No relevant content was found in the NOC knowledge base."
-
-        else:
-            if not rag_chunks:
-                st.session_state.error = "No RAG documents are available."
-            else:
-                results = retrieve_knowledge(q, rag_chunks)
-                st.session_state.rag_results = results
-                context = "\n\n".join(f"SOURCE: {x['source']}\n{x['text']}" for x in results)
-                with st.spinner("Comparing RAG evidence with AI reasoning..."):
-                    answer, error = call_llm(q, rag_context=context if context else None)
-                if error: st.session_state.error = error
-                else: st.session_state.answer = answer
-
-    # Compact results area: comparison is side-by-side, so it stays in one viewport.
-    if st.session_state.error:
-        st.error(st.session_state.error)
-
-    rag = st.session_state.rag_results
-    ans = st.session_state.answer
-
-    if mode == "🔍 RAG + AI Comparison" and (rag or ans):
-        left, right = st.columns(2, gap="medium")
-        with left:
-            st.markdown('<div class="result-title">📚 RAG Evidence</div><div class="result-sub">What your NOC documents say</div>', unsafe_allow_html=True)
-            with st.container(height=300, border=True):
-                if rag:
-                    for item in rag:
-                        st.markdown(f"**{item['source']}**")
-                        st.write(item['text'])
-                else:
-                    st.info("No matching RAG evidence.")
-        with right:
-            st.markdown('<div class="result-title">🧠 AI Explanation</div><div class="result-sub">LLM explanation grounded in the retrieved evidence</div>', unsafe_allow_html=True)
-            with st.container(height=300, border=True):
-                if ans: st.markdown(ans)
-                else: st.info("No AI response.")
-
-    elif rag:
-        st.markdown('<div class="result-title">📚 RAG Retrieved Result</div><div class="result-sub">Focused evidence from your NOC knowledge base</div>', unsafe_allow_html=True)
-        with st.container(height=300, border=True):
-            for item in rag:
-                st.markdown(f"**{item['source']}**")
-                st.write(item['text'])
-
-    elif ans:
-        st.markdown('<div class="result-title">🧠 AI Response</div><div class="result-sub">Generated from general model knowledge</div>', unsafe_allow_html=True)
-        with st.container(height=300, border=True):
-            st.markdown(ans)
-
-    st.markdown('<div class="compare-note">Learning/demo project — verify AI answers against real network evidence before operational use.</div>', unsafe_allow_html=True)
+    render_incident_analysis()
