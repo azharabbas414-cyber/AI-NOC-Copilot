@@ -429,6 +429,63 @@ def classify_incident(question):
     }
 
 
+def generate_shift_handover(shift_date, shift_name, incident_details, ongoing_issues, pending_actions, important_notes):
+    """Generate a concise NOC shift handover using the same Groq LLM."""
+    api_key = get_groq_key()
+    if not api_key:
+        return None, "GROQ_API_KEY is not configured."
+
+    prompt = f"""
+You are an AI NOC Copilot helping prepare a shift handover summary.
+
+SHIFT DATE:
+{shift_date}
+
+SHIFT / ENGINEER:
+{shift_name}
+
+INCIDENTS HANDLED:
+{incident_details}
+
+ONGOING ISSUES:
+{ongoing_issues}
+
+PENDING ACTIONS:
+{pending_actions}
+
+IMPORTANT NOTES:
+{important_notes}
+
+Create a concise, professional NOC shift handover in Markdown.
+Use these sections:
+1. Shift Overview
+2. Resolved / Handled Incidents
+3. Ongoing Issues
+4. Pending Actions
+5. Important Notes
+
+Rules:
+- Use only the information provided above.
+- Do not invent incidents, times, impact, root causes, device output, or actions.
+- If a section has no information, write "None provided".
+- Keep it clear and easy for the next NOC engineer to understand.
+"""
+
+    try:
+        client = OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
+        response = client.chat.completions.create(
+            model="openai/gpt-oss-20b",
+            messages=[
+                {"role": "system", "content": "You are a helpful NOC shift handover assistant."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.2,
+        )
+        return response.choices[0].message.content, None
+    except Exception as exc:
+        return None, str(exc)
+
+
 # =========================================================
 # 6. UI — modular NOC dashboard
 # =========================================================
@@ -522,7 +579,7 @@ with st.sidebar:
     st.markdown("### MODULES")
     module = st.radio(
         "Module",
-        ["🚨 Incident Analysis", "📊 Network Health", "📑 NOC Report Generator"],
+        ["🚨 Incident Analysis", "📊 Network Health", "🔄 Shift Handover Assistant", "📑 NOC Report Generator"],
         index=0,
         label_visibility="collapsed",
     )
@@ -530,6 +587,7 @@ with st.sidebar:
     descriptions = {
         "🚨 Incident Analysis": "Investigate incidents using AI + your NOC knowledge base.",
         "📊 Network Health": "Review network metrics and identify potential issues.",
+        "🔄 Shift Handover Assistant": "Create a concise handover summary for the next NOC shift.",
         "📑 NOC Report Generator": "Create a structured incident report from analysis.",
     }
     st.markdown(
@@ -842,6 +900,99 @@ def render_network_health():
 
     st.caption("Learning/demo project: health thresholds are simplified for demonstration and should be validated against real network baselines.")
 
+def render_shift_handover():
+    st.markdown("### 🔄 Shift Handover Assistant")
+    st.caption("Enter the important events from your shift and generate a concise handover for the next NOC engineer.")
+
+    with st.form("shift_handover_form"):
+        st.markdown('<div class="section-label">Shift Information</div>', unsafe_allow_html=True)
+        c1, c2 = st.columns(2)
+        with c1:
+            st.markdown("**Shift Date**")
+            shift_date = st.text_input(
+                "Shift Date",
+                placeholder="Example: 2026-09-12",
+                label_visibility="collapsed",
+            )
+        with c2:
+            st.markdown("**Shift / Engineer Name**")
+            shift_name = st.text_input(
+                "Shift / Engineer Name",
+                placeholder="Example: Night Shift - NOC Team",
+                label_visibility="collapsed",
+            )
+
+        st.markdown("**Incidents Handled / Resolved**")
+        incident_details = st.text_area(
+            "Incidents Handled",
+            placeholder="Example: BGP peer down on PE-01. Service restored after interface issue was resolved.",
+            height=90,
+            label_visibility="collapsed",
+        )
+
+        st.markdown("**Ongoing Issues**")
+        ongoing_issues = st.text_area(
+            "Ongoing Issues",
+            placeholder="Example: Eth1/3 utilization remains high and requires monitoring.",
+            height=80,
+            label_visibility="collapsed",
+        )
+
+        st.markdown("**Pending Actions**")
+        pending_actions = st.text_area(
+            "Pending Actions",
+            placeholder="Example: Continue monitoring utilization. Escalate if it remains above the agreed threshold.",
+            height=80,
+            label_visibility="collapsed",
+        )
+
+        st.markdown("**Important Notes**")
+        important_notes = st.text_area(
+            "Important Notes",
+            placeholder="Example: No other major incidents during the shift.",
+            height=70,
+            label_visibility="collapsed",
+        )
+
+        generate = st.form_submit_button(
+            "🔄 Generate Shift Handover",
+            type="primary",
+            use_container_width=True,
+        )
+
+    if generate:
+        if not shift_date.strip() or not shift_name.strip():
+            st.warning("Please enter Shift Date and Shift / Engineer Name.")
+            return
+
+        if not any(x.strip() for x in [incident_details, ongoing_issues, pending_actions, important_notes]):
+            st.warning("Please enter at least one incident, ongoing issue, pending action, or important note.")
+            return
+
+        with st.spinner("Preparing shift handover..."):
+            handover, error = generate_shift_handover(
+                shift_date.strip(), shift_name.strip(), incident_details.strip(),
+                ongoing_issues.strip(), pending_actions.strip(), important_notes.strip()
+            )
+
+        if error:
+            st.error(error)
+            return
+
+        st.markdown("#### Generated Shift Handover")
+        st.markdown('<div class="report-box">', unsafe_allow_html=True)
+        st.markdown(handover)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        st.download_button(
+            "⬇️ Download Shift Handover",
+            handover,
+            file_name="noc_shift_handover.md",
+            mime="text/markdown",
+            use_container_width=True,
+        )
+
+
 def render_report_generator():
     st.markdown("### 📑 NOC Report Generator")
     st.caption("Enter the details of a network incident and generate a structured NOC incident report.")
@@ -968,6 +1119,8 @@ Learning / Demo Project
 
 if module=="📊 Network Health":
     render_network_health()
+elif module=="🔄 Shift Handover Assistant":
+    render_shift_handover()
 elif module=="📑 NOC Report Generator":
     render_report_generator()
 else:
