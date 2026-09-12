@@ -3,7 +3,6 @@ import re
 import streamlit as st
 from openai import OpenAI
 
-# Optional libraries for uploaded RAG documents
 try:
     from pypdf import PdfReader
 except ImportError:
@@ -15,9 +14,9 @@ except ImportError:
     Document = None
 
 
-# ---------------------------------------------------------
-# 1. Small built-in NOC knowledge base
-# ---------------------------------------------------------
+# =========================================================
+# 1. Built-in NOC knowledge
+# =========================================================
 BUILT_IN_KNOWLEDGE = [
     {
         "topic": "Packet Loss",
@@ -54,9 +53,9 @@ BUILT_IN_KNOWLEDGE = [
 ]
 
 
-# ---------------------------------------------------------
-# 2. Extract text from uploaded files
-# ---------------------------------------------------------
+# =========================================================
+# 2. File extraction
+# =========================================================
 def extract_text(uploaded_file):
     filename = uploaded_file.name.lower()
 
@@ -79,26 +78,29 @@ def extract_text(uploaded_file):
 
 
 def split_into_chunks(text, words_per_chunk=700):
-    """Very simple chunking for learning RAG."""
     words = text.split()
-    return [
-        " ".join(words[i:i + words_per_chunk]).strip()
-        for i in range(0, len(words), words_per_chunk)
-        if " ".join(words[i:i + words_per_chunk]).strip()
-    ]
+    chunks = []
+
+    for i in range(0, len(words), words_per_chunk):
+        chunk = " ".join(words[i:i + words_per_chunk]).strip()
+        if chunk:
+            chunks.append(chunk)
+
+    return chunks
 
 
-# ---------------------------------------------------------
-# 3. Simple keyword-based retrieval
-# ---------------------------------------------------------
+# =========================================================
+# 3. Simple RAG retrieval
+# =========================================================
 def get_words(text):
     return set(re.findall(r"[a-zA-Z0-9_-]+", text.lower()))
 
 
-def retrieve_knowledge(incident, uploaded_chunks, top_k=4):
-    query_words = get_words(incident)
+def retrieve_knowledge(question, uploaded_chunks, top_k=4):
+    query_words = get_words(question)
     candidates = []
 
+    # Built-in knowledge
     for item in BUILT_IN_KNOWLEDGE:
         item_words = get_words(item["topic"] + " " + item["text"])
         score = len(query_words.intersection(item_words))
@@ -108,6 +110,7 @@ def retrieve_knowledge(incident, uploaded_chunks, top_k=4):
                 (score, f"Built-in: {item['topic']}", item["text"])
             )
 
+    # Uploaded documents
     for number, chunk in enumerate(uploaded_chunks, start=1):
         chunk_words = get_words(chunk)
         score = len(query_words.intersection(chunk_words))
@@ -119,74 +122,60 @@ def retrieve_knowledge(incident, uploaded_chunks, top_k=4):
 
     candidates.sort(key=lambda x: x[0], reverse=True)
 
-    if not candidates:
-        return [{
-            "source": "General troubleshooting",
-            "text": (
-                "Start with the incident time, affected service/device, "
-                "interface status, traffic utilization, errors, logs, and "
-                "recent configuration or routing changes."
-            )
-        }]
-
     return [
         {"source": source, "text": text}
         for _, source, text in candidates[:top_k]
     ]
 
 
-# ---------------------------------------------------------
-# 4. Call Groq
-# ---------------------------------------------------------
-def analyze_with_groq(incident, retrieved):
-    # Streamlit Cloud Secrets
+# =========================================================
+# 4. Groq LLM
+# =========================================================
+def get_api_key():
     try:
-        api_key = st.secrets["GROQ_API_KEY"]
+        return st.secrets["GROQ_API_KEY"]
     except Exception:
-        api_key = os.getenv("GROQ_API_KEY")
+        return os.getenv("GROQ_API_KEY")
+
+
+def call_llm(question, rag_context=None):
+    api_key = get_api_key()
 
     if not api_key:
         return None, "GROQ_API_KEY is not configured."
 
-    context = "\n\n".join(
-        f"SOURCE: {item['source']}\n{item['text']}"
-        for item in retrieved
-    )
+    if rag_context:
+        prompt = f"""
+You are an AI NOC Copilot.
 
-    prompt = f"""
-You are a beginner-friendly AI NOC Copilot.
+Answer the user's question using the retrieved RAG context below.
 
-Analyze this network incident using the retrieved knowledge.
+USER QUESTION:
+{question}
 
-INCIDENT:
-{incident}
-
-RETRIEVED KNOWLEDGE:
-{context}
-
-Return these sections:
-
-### Incident Understanding
-Explain what appears to be happening.
-
-### Probable Root Cause
-Give the most likely cause. Clearly say if the evidence is insufficient.
-
-### Evidence
-List the important clues.
-
-### Recommended Checks
-Give 3 to 5 practical checks for an NOC engineer.
-
-### Confidence
-Give High, Medium, or Low confidence and explain why.
+RAG CONTEXT:
+{rag_context}
 
 Rules:
-- Use the retrieved knowledge when relevant.
-- Do not invent device output or measurements.
-- Do not claim certainty without evidence.
-- Do not make automatic configuration changes.
-- Keep the explanation simple.
+- Give a clear, useful answer.
+- Prefer the supplied RAG context when it is relevant.
+- You may explain concepts using your general knowledge.
+- Do not invent network measurements or device output.
+- Clearly say when the evidence is insufficient.
+"""
+    else:
+        prompt = f"""
+You are an AI NOC Copilot.
+
+Answer the user's question using your general model knowledge.
+
+USER QUESTION:
+{question}
+
+Rules:
+- Give a clear, useful answer.
+- Do not invent network measurements or device output.
+- Clearly say when the evidence is insufficient.
 """
 
     try:
@@ -200,7 +189,7 @@ Rules:
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a helpful beginner-friendly NOC AI assistant.",
+                    "content": "You are a helpful, concise NOC AI assistant.",
                 },
                 {
                     "role": "user",
@@ -216,9 +205,9 @@ Rules:
         return None, str(exc)
 
 
-# ---------------------------------------------------------
+# =========================================================
 # 5. Streamlit UI
-# ---------------------------------------------------------
+# =========================================================
 st.set_page_config(
     page_title="AI-NOC Copilot",
     page_icon="🤖",
@@ -227,19 +216,22 @@ st.set_page_config(
 
 st.title("🤖 AI-NOC Copilot")
 st.write(
-    "A beginner AI project demonstrating **RAG + an LLM** "
-    "for network incident analysis."
+    "Ask a network question and choose whether the answer should use "
+    "the LLM alone, your uploaded RAG documents, or both."
 )
 
-st.info("Flow: Upload Knowledge → Incident → RAG → LLM → AI Analysis")
+st.info("Simple learning flow: Question → Selected Source → LLM → Answer")
 
-st.subheader("📚 Upload RAG Knowledge")
+
+# ---------------------------------------------------------
+# Upload RAG documents
+# ---------------------------------------------------------
+st.subheader("📚 RAG Documents")
 
 uploaded_files = st.file_uploader(
     "Upload NOC documents",
     type=["txt", "pdf", "docx"],
     accept_multiple_files=True,
-    help="Upload TXT, PDF, or DOCX files containing NOC/network knowledge.",
 )
 
 uploaded_chunks = []
@@ -252,51 +244,135 @@ if uploaded_files:
             chunks = split_into_chunks(text)
             uploaded_chunks.extend(chunks)
             st.success(
-                f"{uploaded_file.name}: loaded {len(chunks)} text chunk(s)."
+                f"{uploaded_file.name}: {len(chunks)} chunk(s) loaded."
             )
         else:
-            st.warning(f"{uploaded_file.name}: no readable text was found.")
+            st.warning(f"{uploaded_file.name}: no readable text found.")
 
-st.subheader("📝 Network Incident")
 
-incident = st.text_area(
-    "Enter the incident",
+# ---------------------------------------------------------
+# Question and source selection
+# ---------------------------------------------------------
+st.subheader("📝 Ask Your Question")
+
+question = st.text_area(
+    "Question",
     placeholder=(
-        "Example: Users are reporting high latency and packet loss "
-        "on a congested link."
+        "Example: What could cause packet loss when interface "
+        "utilization is very high?"
     ),
-    height=150,
+    height=130,
 )
 
-if st.button("🔍 Analyze Incident", type="primary"):
-    if not incident.strip():
-        st.warning("Please enter a network incident.")
-    else:
-        retrieved = retrieve_knowledge(incident, uploaded_chunks)
+source_mode = st.radio(
+    "How should the answer be generated?",
+    options=[
+        "LLM Only",
+        "Uploaded RAG Only",
+        "Both: RAG + LLM",
+    ],
+    index=2,
+)
 
-        st.subheader("📖 Retrieved RAG Context")
+st.caption(
+    "LLM Only = no uploaded document context. "
+    "Uploaded RAG Only = show what your documents retrieve. "
+    "Both = retrieve your documents and ask the LLM to explain them."
+)
 
-        for item in retrieved:
-            with st.expander(item["source"], expanded=True):
-                st.write(item["text"])
 
-        with st.spinner("LLM is analyzing the incident..."):
-            answer, error = analyze_with_groq(incident, retrieved)
+if st.button("🚀 Get Answer", type="primary"):
+    if not question.strip():
+        st.warning("Please enter a question.")
+        st.stop()
+
+    # -----------------------------
+    # LLM Only
+    # -----------------------------
+    if source_mode == "LLM Only":
+        with st.spinner("Generating LLM answer..."):
+            answer, error = call_llm(question)
 
         if error:
             st.error(error)
-
-            if error == "GROQ_API_KEY is not configured.":
-                st.info(
-                    "Add GROQ_API_KEY in Streamlit Cloud → Settings → Secrets."
-                )
         else:
-            st.subheader("🤖 AI Investigation")
+            st.subheader("🤖 LLM Response")
             st.markdown(answer)
+
+    # -----------------------------
+    # RAG Only
+    # -----------------------------
+    elif source_mode == "Uploaded RAG Only":
+        if not uploaded_chunks:
+            st.warning("Please upload at least one RAG document first.")
+            st.stop()
+
+        retrieved = retrieve_knowledge(question, uploaded_chunks)
+
+        st.subheader("📖 RAG Retrieved Results")
+
+        if not retrieved:
+            st.info(
+                "No matching content was found in the uploaded documents."
+            )
+        else:
+            for item in retrieved:
+                with st.expander(item["source"], expanded=True):
+                    st.write(item["text"])
+
+    # -----------------------------
+    # Both
+    # -----------------------------
+    else:
+        if not uploaded_chunks:
+            st.warning(
+                "No RAG files are uploaded. The app will provide the LLM "
+                "answer without document context."
+            )
+
+            with st.spinner("Generating LLM answer..."):
+                answer, error = call_llm(question)
+
+            if error:
+                st.error(error)
+            else:
+                st.subheader("🤖 LLM Response")
+                st.markdown(answer)
+
+        else:
+            retrieved = retrieve_knowledge(question, uploaded_chunks)
+
+            st.subheader("📖 RAG Retrieved Results")
+
+            if retrieved:
+                for item in retrieved:
+                    with st.expander(item["source"], expanded=True):
+                        st.write(item["text"])
+
+                rag_context = "\n\n".join(
+                    f"SOURCE: {item['source']}\n{item['text']}"
+                    for item in retrieved
+                )
+            else:
+                st.info("No matching RAG content was found.")
+                rag_context = ""
+
+            with st.spinner("Generating LLM answer using RAG context..."):
+                answer, error = call_llm(
+                    question,
+                    rag_context=rag_context if rag_context else None,
+                )
+
+            if error:
+                st.error(error)
+            else:
+                st.subheader("🤖 LLM Response")
+                st.markdown(answer)
+
 
 st.divider()
 
 st.caption(
-    "Learning/demo project. Verify AI recommendations against real "
-    "network evidence before taking action."
+    "Learning/demo project. Verify AI answers against real network "
+    "evidence before taking operational action."
 )
