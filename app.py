@@ -23,7 +23,7 @@ except ImportError:
 # =========================================================
 # Paste your Google Drive file/folder link ONCE here.
 # After that, the app loads this source automatically; no repeated upload/paste is needed.
-FIXED_GOOGLE_DRIVE_URL = "PASTE_YOUR_GOOGLE_DRIVE_LINK_HERE"
+FIXED_GOOGLE_DRIVE_URL = "https://drive.google.com/drive/folders/1nJwrAhBnX9wjuo4TtWNSOtvvq8gl6apT"
 
 
 # =========================================================
@@ -378,7 +378,7 @@ else:
     # paste the link or upload the documents on every run.
     drive_url = FIXED_GOOGLE_DRIVE_URL.strip()
 
-    if drive_url == "https://drive.google.com/drive/folders/1nJwrAhBnX9wjuo4TtWNSOtvvq8gl6apT?usp=drive_link":
+    if drive_url == "PASTE_YOUR_GOOGLE_DRIVE_LINK_HERE":
         st.warning(
             "Set your Google Drive link once in FIXED_GOOGLE_DRIVE_URL in app.py."
         )
