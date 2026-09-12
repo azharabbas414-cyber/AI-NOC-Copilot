@@ -24,3 +24,6 @@ GOOGLE_DRIVE_API_KEY = "your-google-drive-api-key"
 The Google Drive folder link is already fixed in `app.py`, so users do not need to paste it or upload the documents repeatedly.
 
 The Drive folder must be accessible to the API key (for this beginner version, use a folder/files shared appropriately for link/API access). Private Drive content requiring OAuth is not included in this version.
+
+### RAG retrieval
+The retriever is intentionally lightweight and focused. It removes common words, prioritizes NOC/domain terms, applies topic filtering, and avoids returning weak unrelated chunks.
