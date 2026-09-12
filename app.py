@@ -3,6 +3,7 @@ import re
 import io
 import json
 import streamlit as st
+import pandas as pd
 from openai import OpenAI
 from urllib.request import urlopen, Request
 from urllib.parse import urlparse, parse_qs, quote
@@ -502,6 +503,10 @@ div[data-testid="stButton"] button p {color:#fff !important;}
 .health-card .value {color:#fff;font-size:1.15rem;font-weight:800;margin-top:.15rem;}
 .report-box {background:#0b0b0b;border:1px solid #292929;border-radius:12px;padding:.85rem;}
 footer {visibility:hidden;}
+
+.stFileUploader {
+  background:#0b0b0b; border:1px dashed #3a3a3a; border-radius:10px; padding:.15rem;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -685,23 +690,124 @@ def render_incident_analysis():
 
 def render_network_health():
     st.markdown("### 📊 Network Health")
-    st.caption("Review simulated network performance data and identify potential issues.")
-    import pandas as pd
-    data=[
-        ("Eth1/1","92%","0.2%","0","🟠 Attention"),
-        ("Eth1/2","45%","0%","0","🟢 Healthy"),
-        ("Eth1/3","78%","4.5%","125","🔴 Investigate"),
-        ("Eth1/4","35%","0%","0","🟢 Healthy"),
-    ]
-    df=pd.DataFrame(data,columns=["Interface","Utilization","Packet Loss","CRC Errors","Status"])
-    c1,c2,c3=st.columns(3)
-    with c1: st.markdown('<div class="health-card"><div class="label">OVERALL HEALTH</div><div class="value">🟠 Attention</div></div>',unsafe_allow_html=True)
-    with c2: st.markdown('<div class="health-card"><div class="label">HIGH UTILIZATION</div><div class="value">Eth1/1</div></div>',unsafe_allow_html=True)
-    with c3: st.markdown('<div class="health-card"><div class="label">ERROR INDICATOR</div><div class="value">Eth1/3</div></div>',unsafe_allow_html=True)
-    st.markdown("#### Interface Metrics")
-    st.dataframe(df,use_container_width=True,hide_index=True)
-    st.info("Demo insight: Eth1/3 deserves investigation because packet loss and CRC errors are elevated. Eth1/1 is approaching high utilization. These are simulated values.")
+    st.caption("Upload a CSV containing network interface metrics. The app analyzes utilization, packet loss, and CRC errors locally.")
 
+    uploaded_csv = st.file_uploader(
+        "Upload network health CSV",
+        type=["csv"],
+        help="Use the sample CSV provided with this project, or upload your own CSV with Interface, Utilization, Packet Loss, and CRC Errors columns."
+    )
+
+    if uploaded_csv is not None:
+        try:
+            df = pd.read_csv(uploaded_csv)
+        except Exception as e:
+            st.error(f"Could not read the CSV: {e}")
+            return
+        source_label = uploaded_csv.name
+    else:
+        # Keep a small built-in demo dataset so the module remains usable immediately.
+        data = [
+            ("Eth1/1", 92, 0.2, 0),
+            ("Eth1/2", 45, 0.0, 0),
+            ("Eth1/3", 78, 4.5, 125),
+            ("Eth1/4", 35, 0.0, 0),
+        ]
+        df = pd.DataFrame(data, columns=["Interface", "Utilization", "Packet Loss", "CRC Errors"])
+        source_label = "Built-in demo data"
+
+    # Normalize common column names.
+    aliases = {
+        "interface": "Interface",
+        "interface_name": "Interface",
+        "utilization": "Utilization",
+        "utilization_%": "Utilization",
+        "packet_loss": "Packet Loss",
+        "packet loss": "Packet Loss",
+        "packet_loss_%": "Packet Loss",
+        "crc_errors": "CRC Errors",
+        "crc errors": "CRC Errors",
+        "crc": "CRC Errors",
+    }
+    rename = {}
+    for col in df.columns:
+        key = str(col).strip().lower()
+        if key in aliases:
+            rename[col] = aliases[key]
+    df = df.rename(columns=rename)
+
+    required = ["Interface", "Utilization", "Packet Loss", "CRC Errors"]
+    missing = [c for c in required if c not in df.columns]
+    if missing:
+        st.error("Missing required column(s): " + ", ".join(missing))
+        st.info("Required columns: Interface, Utilization, Packet Loss, CRC Errors")
+        return
+
+    for col in ["Utilization", "Packet Loss", "CRC Errors"]:
+        df[col] = pd.to_numeric(
+            df[col].astype(str).str.replace("%", "", regex=False).str.replace(",", "", regex=False),
+            errors="coerce"
+        )
+    df = df.dropna(subset=["Interface", "Utilization", "Packet Loss", "CRC Errors"]).copy()
+
+    def health_status(row):
+        if row["Packet Loss"] >= 3 or row["CRC Errors"] > 100 or row["Utilization"] >= 95:
+            return "🔴 Investigate"
+        if row["Packet Loss"] > 0 or row["CRC Errors"] > 0 or row["Utilization"] >= 80:
+            return "🟠 Attention"
+        return "🟢 Healthy"
+
+    df["Status"] = df.apply(health_status, axis=1)
+
+    critical = df[df["Status"] == "🔴 Investigate"]
+    attention = df[df["Status"] == "🟠 Attention"]
+
+    if len(critical) > 0:
+        overall = "🔴 Investigate"
+    elif len(attention) > 0:
+        overall = "🟠 Attention"
+    else:
+        overall = "🟢 Healthy"
+
+    high_util = df.loc[df["Utilization"].idxmax(), "Interface"] if len(df) else "—"
+    error_rows = df[(df["Packet Loss"] > 0) | (df["CRC Errors"] > 0)]
+    error_iface = error_rows.iloc[0]["Interface"] if len(error_rows) else "None"
+
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        st.markdown(f'<div class="health-card"><div class="label">OVERALL HEALTH</div><div class="value">{overall}</div></div>', unsafe_allow_html=True)
+    with c2:
+        st.markdown(f'<div class="health-card"><div class="label">HIGH UTILIZATION</div><div class="value">{high_util}</div></div>', unsafe_allow_html=True)
+    with c3:
+        st.markdown(f'<div class="health-card"><div class="label">ERROR INDICATOR</div><div class="value">{error_iface}</div></div>', unsafe_allow_html=True)
+    with c4:
+        st.markdown(f'<div class="health-card"><div class="label">SOURCE</div><div class="value" style="font-size:.85rem">{source_label}</div></div>', unsafe_allow_html=True)
+
+    st.markdown("#### Interface Metrics")
+    st.dataframe(df, use_container_width=True, hide_index=True)
+
+    insights = []
+    for _, row in critical.iterrows():
+        reasons = []
+        if row["Utilization"] >= 95: reasons.append("very high utilization")
+        if row["Packet Loss"] >= 3: reasons.append("elevated packet loss")
+        if row["CRC Errors"] > 100: reasons.append("high CRC errors")
+        insights.append(f"**{row['Interface']}** — 🔴 investigate: " + ", ".join(reasons) + ".")
+    for _, row in attention.iterrows():
+        reasons = []
+        if row["Utilization"] >= 80: reasons.append("high utilization")
+        if row["Packet Loss"] > 0: reasons.append("packet loss present")
+        if row["CRC Errors"] > 0: reasons.append("CRC errors present")
+        insights.append(f"**{row['Interface']}** — 🟠 attention: " + ", ".join(reasons) + ".")
+
+    if insights:
+        st.markdown("#### Health Insights")
+        for insight in insights[:6]:
+            st.write("• " + insight)
+    else:
+        st.success("All uploaded interfaces are within the demo health thresholds.")
+
+    st.caption("Learning/demo project: thresholds are simplified for demonstration and are not a substitute for real network monitoring.")
 def render_report_generator():
     st.markdown("### 📑 NOC Report Generator")
     st.caption("Create a structured NOC incident report from information you provide.")
