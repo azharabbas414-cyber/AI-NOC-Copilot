@@ -38,3 +38,7 @@ The app automatically classifies the user's question into protocol, incident typ
 - Incident Analysis
 - Network Health
 - NOC Report Generator
+
+
+### Network Health CSV
+Upload `network_health_sample.csv` in the Network Health module. Required columns: `Interface`, `Utilization`, `Packet Loss`, `CRC Errors`.
