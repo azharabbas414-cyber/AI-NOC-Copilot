@@ -3,7 +3,7 @@ import re
 import streamlit as st
 from openai import OpenAI
 
-# Optional libraries used only for uploaded PDF/DOCX files.
+# Optional libraries for uploaded RAG documents
 try:
     from pypdf import PdfReader
 except ImportError:
@@ -55,10 +55,9 @@ BUILT_IN_KNOWLEDGE = [
 
 
 # ---------------------------------------------------------
-# 2. Read uploaded documents
+# 2. Extract text from uploaded files
 # ---------------------------------------------------------
 def extract_text(uploaded_file):
-    """Extract text from TXT, PDF, or DOCX."""
     filename = uploaded_file.name.lower()
 
     if filename.endswith(".txt"):
@@ -68,10 +67,7 @@ def extract_text(uploaded_file):
         if PdfReader is None:
             return ""
         reader = PdfReader(uploaded_file)
-        pages = []
-        for page in reader.pages:
-            pages.append(page.extract_text() or "")
-        return "\n".join(pages)
+        return "\n".join(page.extract_text() or "" for page in reader.pages)
 
     if filename.endswith(".docx"):
         if Document is None:
@@ -82,44 +78,38 @@ def extract_text(uploaded_file):
     return ""
 
 
-def split_into_chunks(text, chunk_size=700):
-    """Very simple chunking for beginner RAG."""
+def split_into_chunks(text, words_per_chunk=700):
+    """Very simple chunking for learning RAG."""
     words = text.split()
-    chunks = []
-
-    for i in range(0, len(words), chunk_size):
-        chunk = " ".join(words[i:i + chunk_size]).strip()
-        if chunk:
-            chunks.append(chunk)
-
-    return chunks
+    return [
+        " ".join(words[i:i + words_per_chunk]).strip()
+        for i in range(0, len(words), words_per_chunk)
+        if " ".join(words[i:i + words_per_chunk]).strip()
+    ]
 
 
 # ---------------------------------------------------------
-# 3. Simple RAG retrieval
+# 3. Simple keyword-based retrieval
 # ---------------------------------------------------------
-def keywords(text):
+def get_words(text):
     return set(re.findall(r"[a-zA-Z0-9_-]+", text.lower()))
 
 
 def retrieve_knowledge(incident, uploaded_chunks, top_k=4):
-    """Keyword-based retrieval. No vector database or embeddings yet."""
-    query_words = keywords(incident)
+    query_words = get_words(incident)
     candidates = []
 
-    # Built-in knowledge
     for item in BUILT_IN_KNOWLEDGE:
-        text_words = keywords(item["topic"] + " " + item["text"])
-        score = len(query_words.intersection(text_words))
+        item_words = get_words(item["topic"] + " " + item["text"])
+        score = len(query_words.intersection(item_words))
 
         if score > 0:
             candidates.append(
                 (score, f"Built-in: {item['topic']}", item["text"])
             )
 
-    # Uploaded document chunks
     for number, chunk in enumerate(uploaded_chunks, start=1):
-        chunk_words = keywords(chunk)
+        chunk_words = get_words(chunk)
         score = len(query_words.intersection(chunk_words))
 
         if score > 0:
@@ -146,17 +136,17 @@ def retrieve_knowledge(incident, uploaded_chunks, top_k=4):
 
 
 # ---------------------------------------------------------
-# 4. Call Grok
+# 4. Call Groq
 # ---------------------------------------------------------
-def analyze_with_grok(incident, retrieved):
+def analyze_with_groq(incident, retrieved):
     # Streamlit Cloud Secrets
     try:
-        api_key = st.secrets["XAI_API_KEY"]
+        api_key = st.secrets["GROQ_API_KEY"]
     except Exception:
-        api_key = os.getenv("XAI_API_KEY")
+        api_key = os.getenv("GROQ_API_KEY")
 
     if not api_key:
-        return None, "XAI_API_KEY is not configured."
+        return None, "GROQ_API_KEY is not configured."
 
     context = "\n\n".join(
         f"SOURCE: {item['source']}\n{item['text']}"
@@ -202,15 +192,25 @@ Rules:
     try:
         client = OpenAI(
             api_key=api_key,
-            base_url="https://api.x.ai/v1",
+            base_url="https://api.groq.com/openai/v1",
         )
 
-        response = client.responses.create(
-            model="grok-4.6",
-            input=prompt,
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a helpful beginner-friendly NOC AI assistant.",
+                },
+                {
+                    "role": "user",
+                    "content": prompt,
+                },
+            ],
+            temperature=0.2,
         )
 
-        return response.output_text, None
+        return response.choices[0].message.content, None
 
     except Exception as exc:
         return None, str(exc)
@@ -227,11 +227,11 @@ st.set_page_config(
 
 st.title("🤖 AI-NOC Copilot")
 st.write(
-    "Beginner AI project demonstrating **RAG + Grok** "
+    "A beginner AI project demonstrating **RAG + an LLM** "
     "for network incident analysis."
 )
 
-st.info("Flow: Upload Knowledge → Incident → RAG → Grok → AI Analysis")
+st.info("Flow: Upload Knowledge → Incident → RAG → LLM → AI Analysis")
 
 st.subheader("📚 Upload RAG Knowledge")
 
@@ -255,9 +255,7 @@ if uploaded_files:
                 f"{uploaded_file.name}: loaded {len(chunks)} text chunk(s)."
             )
         else:
-            st.warning(
-                f"{uploaded_file.name}: no readable text was found."
-            )
+            st.warning(f"{uploaded_file.name}: no readable text was found.")
 
 st.subheader("📝 Network Incident")
 
@@ -274,10 +272,7 @@ if st.button("🔍 Analyze Incident", type="primary"):
     if not incident.strip():
         st.warning("Please enter a network incident.")
     else:
-        retrieved = retrieve_knowledge(
-            incident,
-            uploaded_chunks,
-        )
+        retrieved = retrieve_knowledge(incident, uploaded_chunks)
 
         st.subheader("📖 Retrieved RAG Context")
 
@@ -285,15 +280,15 @@ if st.button("🔍 Analyze Incident", type="primary"):
             with st.expander(item["source"], expanded=True):
                 st.write(item["text"])
 
-        with st.spinner("Grok is analyzing the incident..."):
-            answer, error = analyze_with_grok(incident, retrieved)
+        with st.spinner("LLM is analyzing the incident..."):
+            answer, error = analyze_with_groq(incident, retrieved)
 
         if error:
             st.error(error)
 
-            if error == "XAI_API_KEY is not configured.":
+            if error == "GROQ_API_KEY is not configured.":
                 st.info(
-                    "Add XAI_API_KEY in Streamlit Cloud → Settings → Secrets."
+                    "Add GROQ_API_KEY in Streamlit Cloud → Settings → Secrets."
                 )
         else:
             st.subheader("🤖 AI Investigation")
