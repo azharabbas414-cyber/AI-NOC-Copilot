@@ -203,30 +203,89 @@ def load_google_drive(url):
 
 
 # =========================================================
-# 3. Simple RAG retrieval
+# 3. Focused RAG retrieval
 # =========================================================
+# This is intentionally lightweight: no vector database or embeddings.
+# The retriever removes common words, gives extra weight to exact/domain
+# terms, and filters weak matches so unrelated incidents are not shown.
+STOP_WORDS = {
+    "a", "an", "the", "is", "are", "was", "were", "what", "why", "how",
+    "can", "could", "would", "should", "do", "does", "did", "to", "of",
+    "in", "on", "for", "from", "with", "and", "or", "my", "your", "this",
+    "that", "it", "be", "go", "goes", "going", "cause", "causes", "reason",
+    "problem", "issue", "incident", "network", "session", "down",
+}
+
+# Important NOC/domain terms get stronger matching.
+DOMAIN_TERMS = {
+    "bgp", "ospf", "mtu", "crc", "packet", "loss", "congestion",
+    "interface", "neighbor", "adjacency", "peer", "prefix", "route",
+    "routing", "authentication", "area", "optic", "fiber", "duplex",
+}
+
 def get_words(text):
     return set(re.findall(r"[a-zA-Z0-9_-]+", text.lower()))
 
 
 def retrieve_knowledge(question, uploaded_chunks, top_k=4):
     query_words = get_words(question)
-    candidates = []
+    meaningful_query = query_words - STOP_WORDS
 
+    # If the question contains a strong protocol/topic term, prefer only
+    # chunks that contain that same topic. This prevents a BGP question from
+    # returning OSPF/MTU/CRC incidents merely because they also say "down".
+    topic_terms = meaningful_query.intersection(DOMAIN_TERMS)
+
+    candidates = []
     for number, chunk in enumerate(uploaded_chunks, start=1):
         chunk_words = get_words(chunk)
-        score = len(query_words.intersection(chunk_words))
+
+        if topic_terms and not topic_terms.intersection(chunk_words):
+            continue
+
+        overlap = meaningful_query.intersection(chunk_words)
+        score = len(overlap)
+
+        # Stronger score for domain terms and exact multi-word phrases.
+        score += 2 * len(overlap.intersection(DOMAIN_TERMS))
+
+        q_lower = question.lower().strip()
+        c_lower = chunk.lower()
+        if q_lower and q_lower in c_lower:
+            score += 10
+
+        # Reward common incident phrases such as "bgp session", "ospf
+        # neighbor", "crc errors", and "mtu mismatch".
+        phrase_hits = 0
+        for phrase in (
+            "bgp session", "bgp peer", "ospf neighbor", "ospf adjacency",
+            "crc errors", "crc error", "packet loss", "interface errors",
+            "mtu mismatch", "mtu problem", "link congestion",
+        ):
+            if phrase in q_lower and phrase in c_lower:
+                phrase_hits += 4
+        score += phrase_hits
 
         if score > 0:
-            candidates.append(
-                (score, f"RAG chunk {number}", chunk)
-            )
+            candidates.append((score, len(overlap), f"RAG chunk {number}", chunk))
 
-    candidates.sort(key=lambda x: x[0], reverse=True)
+    if not candidates:
+        return []
+
+    candidates.sort(key=lambda x: (x[0], x[1]), reverse=True)
+    best_score = candidates[0][0]
+
+    # Keep only strong matches. If one document is clearly the best match,
+    # return only that document rather than filling the UI with weak chunks.
+    strong = [item for item in candidates if item[0] >= max(3, best_score * 0.60)]
+
+    # For a focused incident query, one highly relevant chunk is preferred.
+    if topic_terms and strong:
+        strong = strong[:1]
 
     return [
         {"source": source, "text": text}
-        for _, source, text in candidates[:top_k]
+        for _, _, source, text in strong[:top_k]
     ]
 
 
