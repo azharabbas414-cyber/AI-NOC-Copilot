@@ -377,6 +377,61 @@ def clear_results():
 # =========================================================
 st.set_page_config(page_title="AI-NOC Copilot", page_icon="🤖", layout="wide")
 
+
+def classify_incident(question):
+    """Lightweight rule-based incident classification for the learning/demo app."""
+    q = question.lower()
+
+    protocol_rules = [
+        ("BGP", ["bgp", "border gateway", "peer session", "bgp peer"]),
+        ("OSPF", ["ospf", "neighbor adjacency", "ospf neighbor"]),
+        ("MTU", ["mtu", "maximum transmission unit", "large ping", "fragmentation"]),
+        ("Interface / Physical", ["crc", "input errors", "interface error", "optic", "transceiver", "fiber", "duplex"]),
+        ("Packet Loss / Congestion", ["packet loss", "congestion", "utilization", "interface utilization", "drops"]),
+    ]
+
+    matched = []
+    for protocol, keywords in protocol_rules:
+        if any(k in q for k in keywords):
+            matched.append(protocol)
+
+    if matched:
+        protocol = matched[0]
+    else:
+        protocol = "General Network"
+
+    incident_rules = [
+        ("Session Down", ["session down", "peer down", "bgp down", "neighbor down", "adjacency down"]),
+        ("Packet Loss", ["packet loss", "packet drops", "drops"]),
+        ("CRC / Interface Errors", ["crc", "input errors", "interface errors"]),
+        ("MTU / Fragmentation", ["mtu", "fragmentation", "large ping", "large packets"]),
+        ("Congestion / High Utilization", ["congestion", "high utilization", "95% utilization", "interface utilization"]),
+        ("Connectivity Failure", ["cannot reach", "unreachable", "connectivity", "no connectivity"]),
+    ]
+
+    incident = "Network Incident"
+    for name, keywords in incident_rules:
+        if any(k in q for k in keywords):
+            incident = name
+            break
+
+    category_map = {
+        "BGP": "Routing",
+        "OSPF": "Routing",
+        "MTU": "IP / Transport",
+        "Interface / Physical": "Physical / Interface",
+        "Packet Loss / Congestion": "Performance",
+        "General Network": "Network Operations",
+    }
+    category = category_map.get(protocol, "Network Operations")
+
+    return {
+        "protocol": protocol,
+        "incident": incident,
+        "category": category,
+    }
+
+
 st.markdown("""
 <style>
 /* Compact NOC dashboard — dark background with high-contrast controls */
@@ -443,6 +498,13 @@ div[data-testid="stButton"] button[kind="primary"] p { color:#fff !important; }
 div[data-testid="stVerticalBlockBorderWrapper"] { border-color:#292929 !important; background:#070707; border-radius:12px; }
 
 footer { visibility:hidden; }
+
+.class-card {
+  background:#0b0b0b; border:1px solid #2b2b2b; border-radius:10px;
+  padding:.45rem .65rem; min-height:50px;
+}
+.class-card span {display:block; color:#777; font-size:.62rem; letter-spacing:.1em; font-weight:700;}
+.class-card strong {display:block; color:#f5f5f5; font-size:.82rem; margin-top:.12rem;}
 </style>
 """, unsafe_allow_html=True)
 
