@@ -1,20 +1,22 @@
 # AI-NOC-Copilot
 
-A lightweight beginner AI project for learning **Generative AI and RAG** in a Network Operations Center (NOC) scenario.
+A lightweight beginner AI project for learning **Generative AI + RAG** in a Network Operations Center (NOC) scenario.
 
-The application uses a simple Streamlit interface and the Grok API.
+This version uses **Streamlit** and a Groq-hosted LLM.
 
 ## Simple Architecture
 
 ```text
-User Incident
-      ↓
-Simple RAG Search
-      ↓
-Relevant NOC Knowledge
-      ↓
-Grok LLM
-      ↓
+Upload NOC Documents
+        ↓
+     Chunking
+        ↓
+Simple Keyword RAG
+        ↓
+Retrieved Context
+        ↓
+     Groq LLM
+        ↓
 AI Investigation
 ```
 
@@ -22,12 +24,14 @@ AI Investigation
 
 - How an LLM API is called from Python
 - What RAG means
-- How retrieval can provide context to an LLM
-- How a prompt is constructed
+- Basic document loading
+- Basic chunking
+- Basic retrieval
+- How retrieved context is passed to an LLM
 - How AI can analyze a network incident
-- How to deploy a simple AI application on Streamlit Community Cloud
+- How to deploy an AI application on Streamlit Community Cloud
 
-## Project Files
+## Files
 
 ```text
 AI-NOC-Copilot/
@@ -38,44 +42,52 @@ AI-NOC-Copilot/
 
 Only these three files are required.
 
-## Features
+## RAG File Upload
 
-The application can analyze simple incidents involving:
+The application accepts:
 
-- Packet Loss
-- High Latency
-- Congestion
-- Interface Errors
-- OSPF
-- BGP
-- VLAN
-- MTU
+- TXT
+- PDF
+- DOCX
 
-It returns:
+Uploaded documents are:
 
-- Incident Understanding
-- Probable Root Cause
-- Evidence
-- Recommended Checks
-- Confidence
+1. Read
+2. Split into simple text chunks
+3. Searched using keyword matching
+4. Relevant chunks are sent to the LLM as context
 
-## What is intentionally NOT included
+This is intentionally a simple first RAG implementation. It does not yet use embeddings or a vector database.
 
-This is a beginner project, so it does not include:
+## API Key
 
-- SSH
-- Physical routers or switches
-- Automatic configuration
-- Network device APIs
-- Vector databases
-- Embeddings
-- Complex document ingestion
-- Complex workflow automation
-- Automatic remediation
+This version uses the secret name:
 
-These can be learned and added later.
+```text
+GROQ_API_KEY
+```
 
-# Run Locally
+Do not put the actual API key in `app.py` or GitHub.
+
+## Streamlit Cloud Secrets
+
+In your Streamlit Cloud app:
+
+**Settings → Secrets**
+
+Add:
+
+```toml
+GROQ_API_KEY = "your_actual_groq_api_key"
+```
+
+The secret name must be exactly:
+
+```text
+GROQ_API_KEY
+```
+
+## Run Locally
 
 Install dependencies:
 
@@ -83,18 +95,18 @@ Install dependencies:
 python3 -m pip install -r requirements.txt
 ```
 
-Set the API key.
+Set your API key.
 
 ### Linux/macOS
 
 ```bash
-export XAI_API_KEY="your_api_key_here"
+export GROQ_API_KEY="your_api_key_here"
 ```
 
 ### Windows PowerShell
 
 ```powershell
-$env:XAI_API_KEY="your_api_key_here"
+$env:GROQ_API_KEY="your_api_key_here"
 ```
 
 Run:
@@ -103,63 +115,39 @@ Run:
 streamlit run app.py
 ```
 
-# Streamlit Cloud Deployment
+## Example Test
 
-1. Push the three files to your GitHub repository.
-2. Open Streamlit Community Cloud.
-3. Create a new app.
-4. Select your GitHub repository.
-5. Select `app.py` as the main file.
-6. Deploy the app.
-7. Open the app's **Settings/Secrets** section.
-8. Add this secret:
-
-```toml
-XAI_API_KEY = "your_actual_xai_api_key"
-```
-
-The secret name must be exactly:
+Upload the provided NOC test documents and enter:
 
 ```text
-XAI_API_KEY
+Users are experiencing packet loss and high latency.
+The interface utilization is around 95 percent and output drops are increasing.
 ```
 
-Do not put the actual API key in `app.py` or commit it to GitHub.
+The RAG system should retrieve information related to packet loss and congestion.
 
-After adding the secret, restart/redeploy the application if required.
-
-## Example Incident
-
-Try:
+Another test:
 
 ```text
-Users are reporting high latency and packet loss.
-The affected link also appears to have high traffic utilization.
+The OSPF neighbor went down and routes learned from that neighbor disappeared.
 ```
 
-The RAG step should retrieve knowledge about latency, packet loss, and congestion. Grok then uses that context to produce the investigation.
+The RAG system should retrieve the OSPF knowledge.
 
-## How the RAG works
+## What is intentionally NOT included
 
-This first version uses **very simple keyword retrieval**.
+This beginner version does not include:
 
-For example, if the incident contains:
+- SSH
+- Physical routers/switches
+- Automatic configuration
+- Network device APIs
+- Vector databases
+- Embeddings
+- Complex workflow engines
+- Automatic remediation
 
-```text
-packet loss and high latency
-```
-
-the program searches the built-in knowledge base and retrieves matching topics.
-
-That retrieved information is added to the Grok prompt.
-
-This is RAG at a beginner level:
-
-```text
-Retrieve → Add Context → Generate
-```
-
-Later, the keyword search can be replaced with embeddings and a vector database.
+These can be added later as separate learning steps.
 
 ## Important
 
@@ -167,15 +155,15 @@ This is a learning/demo project.
 
 The AI output is advisory. A real NOC engineer should verify the suggested root cause and recommendations using actual network evidence before taking action.
 
-## Suggested Learning Path
+## Next Learning Steps
 
 After this version works:
 
-1. Understand the current RAG code.
-2. Test different incidents.
-3. Improve the knowledge base.
+1. Understand the current RAG flow.
+2. Test different incidents and documents.
+3. Improve chunking.
 4. Learn embeddings.
-5. Replace keyword retrieval with vector search.
-6. Add document-based RAG.
-7. Learn evaluation.
+5. Replace keyword search with vector search.
+6. Add better document processing.
+7. Learn RAG evaluation.
 8. Add workflow automation later.
