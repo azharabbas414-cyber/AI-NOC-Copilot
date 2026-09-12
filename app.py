@@ -15,46 +15,7 @@ except ImportError:
 
 
 # =========================================================
-# 1. Built-in NOC knowledge
-# =========================================================
-BUILT_IN_KNOWLEDGE = [
-    {
-        "topic": "Packet Loss",
-        "text": "Packet loss can be caused by congestion, interface errors, physical-layer problems, faulty equipment, or overloaded devices. Check interface utilization, error counters, drops, and the affected link."
-    },
-    {
-        "topic": "High Latency",
-        "text": "High latency may be caused by congestion, a long network path, routing changes, overloaded devices, or packet loss. Check the path, utilization, and whether latency changed during the incident."
-    },
-    {
-        "topic": "Congestion",
-        "text": "Network congestion occurs when traffic approaches or exceeds available bandwidth. Check interface utilization, traffic trends, queue drops, and whether a traffic spike occurred."
-    },
-    {
-        "topic": "Interface Errors",
-        "text": "CRC and other interface errors can indicate physical-layer issues, bad cables, optics, speed or duplex problems, or faulty hardware. Check interface counters and the physical connection."
-    },
-    {
-        "topic": "OSPF",
-        "text": "OSPF neighbor problems can be caused by interface issues, area mismatch, authentication mismatch, network-type mismatch, or unstable links. Check OSPF neighbors and logs."
-    },
-    {
-        "topic": "BGP",
-        "text": "BGP session problems may be caused by reachability issues, incorrect peer configuration, authentication problems, filtering, or remote peer failure. Check peer state, prefixes, and logs."
-    },
-    {
-        "topic": "VLAN",
-        "text": "VLAN connectivity problems can result from incorrect VLAN membership, trunk configuration, tagging, or native VLAN settings. Verify VLAN membership and whether the VLAN is allowed on the trunk."
-    },
-    {
-        "topic": "MTU",
-        "text": "MTU problems can cause packet drops or application connectivity issues. Check MTU values along the path and test packet sizes. Inconsistent MTU settings can cause fragmentation or dropped oversized packets."
-    },
-]
-
-
-# =========================================================
-# 2. File extraction
+# 1. Extract text from uploaded files
 # =========================================================
 def extract_text(uploaded_file):
     filename = uploaded_file.name.lower()
@@ -77,6 +38,9 @@ def extract_text(uploaded_file):
     return ""
 
 
+# =========================================================
+# 2. Simple chunking
+# =========================================================
 def split_into_chunks(text, words_per_chunk=700):
     words = text.split()
     chunks = []
@@ -100,17 +64,6 @@ def retrieve_knowledge(question, uploaded_chunks, top_k=4):
     query_words = get_words(question)
     candidates = []
 
-    # Built-in knowledge
-    for item in BUILT_IN_KNOWLEDGE:
-        item_words = get_words(item["topic"] + " " + item["text"])
-        score = len(query_words.intersection(item_words))
-
-        if score > 0:
-            candidates.append(
-                (score, f"Built-in: {item['topic']}", item["text"])
-            )
-
-    # Uploaded documents
     for number, chunk in enumerate(uploaded_chunks, start=1):
         chunk_words = get_words(chunk)
         score = len(query_words.intersection(chunk_words))
@@ -148,20 +101,21 @@ def call_llm(question, rag_context=None):
         prompt = f"""
 You are an AI NOC Copilot.
 
-Answer the user's question using the retrieved RAG context below.
+Answer the user's question using the retrieved content from the user's
+uploaded RAG documents.
 
 USER QUESTION:
 {question}
 
-RAG CONTEXT:
+RETRIEVED RAG CONTENT:
 {rag_context}
 
 Rules:
-- Give a clear, useful answer.
-- Prefer the supplied RAG context when it is relevant.
-- You may explain concepts using your general knowledge.
-- Do not invent network measurements or device output.
-- Clearly say when the evidence is insufficient.
+- Use the uploaded RAG content as the primary source.
+- Clearly explain the answer.
+- Do not invent information that is not supported by the context.
+- If the retrieved content does not contain enough information, say so.
+- Do not invent device output or network measurements.
 """
     else:
         prompt = f"""
@@ -173,9 +127,9 @@ USER QUESTION:
 {question}
 
 Rules:
-- Give a clear, useful answer.
-- Do not invent network measurements or device output.
-- Clearly say when the evidence is insufficient.
+- Give a clear and useful answer.
+- Do not invent device output or network measurements.
+- Clearly say when evidence is insufficient.
 """
 
     try:
@@ -206,7 +160,17 @@ Rules:
 
 
 # =========================================================
-# 5. Streamlit UI
+# 5. Clear function
+# =========================================================
+def clear_results():
+    st.session_state.question = ""
+    st.session_state.answer = ""
+    st.session_state.rag_results = []
+    st.session_state.error = ""
+
+
+# =========================================================
+# 6. Page configuration
 # =========================================================
 st.set_page_config(
     page_title="AI-NOC Copilot",
@@ -214,22 +178,42 @@ st.set_page_config(
     layout="centered",
 )
 
+# Session state
+if "question" not in st.session_state:
+    st.session_state.question = ""
+
+if "answer" not in st.session_state:
+    st.session_state.answer = ""
+
+if "rag_results" not in st.session_state:
+    st.session_state.rag_results = []
+
+if "error" not in st.session_state:
+    st.session_state.error = ""
+
+
+# =========================================================
+# 7. UI
+# =========================================================
 st.title("🤖 AI-NOC Copilot")
+
 st.write(
-    "Ask a network question and choose whether the answer should use "
-    "the LLM alone, your uploaded RAG documents, or both."
+    "A beginner AI project for learning **RAG + LLM** using your own "
+    "NOC documents."
 )
 
-st.info("Simple learning flow: Question → Selected Source → LLM → Answer")
+st.info(
+    "Flow: Upload Documents → Ask Question → Select Source → Retrieve → Answer"
+)
 
 
 # ---------------------------------------------------------
-# Upload RAG documents
+# Upload documents
 # ---------------------------------------------------------
-st.subheader("📚 RAG Documents")
+st.subheader("📚 Upload RAG Documents")
 
 uploaded_files = st.file_uploader(
-    "Upload NOC documents",
+    "Upload your NOC knowledge files",
     type=["txt", "pdf", "docx"],
     accept_multiple_files=True,
 )
@@ -243,131 +227,187 @@ if uploaded_files:
         if text.strip():
             chunks = split_into_chunks(text)
             uploaded_chunks.extend(chunks)
+
             st.success(
                 f"{uploaded_file.name}: {len(chunks)} chunk(s) loaded."
             )
         else:
-            st.warning(f"{uploaded_file.name}: no readable text found.")
-
+            st.warning(
+                f"{uploaded_file.name}: no readable text was found."
+            )
 
 # ---------------------------------------------------------
-# Question and source selection
+# Question
 # ---------------------------------------------------------
 st.subheader("📝 Ask Your Question")
 
 question = st.text_area(
     "Question",
-    placeholder=(
-        "Example: What could cause packet loss when interface "
-        "utilization is very high?"
-    ),
-    height=130,
+    value=st.session_state.question,
+    placeholder="Example: What can cause a BGP session to go down?",
+    height=120,
+    key="question_input",
 )
 
+# ---------------------------------------------------------
+# Answer mode
+# ---------------------------------------------------------
 source_mode = st.radio(
     "How should the answer be generated?",
     options=[
-        "LLM Only",
-        "Uploaded RAG Only",
-        "Both: RAG + LLM",
+        "🧠 General AI",
+        "📚 Search My Documents",
+        "🤖 Documents + AI",
     ],
     index=2,
 )
 
 st.caption(
-    "LLM Only = no uploaded document context. "
-    "Uploaded RAG Only = show what your documents retrieve. "
-    "Both = retrieve your documents and ask the LLM to explain them."
+    "🧠 General AI = answer using the LLM's general model knowledge. "
+    "📚 Search My Documents = search only your uploaded RAG documents. "
+    "🤖 Documents + AI = retrieve your documents and let the LLM explain them."
 )
 
+# ---------------------------------------------------------
+# Buttons
+# ---------------------------------------------------------
+col1, col2 = st.columns(2)
 
-if st.button("🚀 Get Answer", type="primary"):
-    if not question.strip():
+with col1:
+    analyze_clicked = st.button(
+        "🚀 Get Answer",
+        type="primary",
+        use_container_width=True,
+    )
+
+with col2:
+    clear_clicked = st.button(
+        "🗑️ Clear Results",
+        use_container_width=True,
+    )
+
+if clear_clicked:
+    st.session_state.question = ""
+    st.session_state.answer = ""
+    st.session_state.rag_results = []
+    st.session_state.error = ""
+    st.rerun()
+
+
+# ---------------------------------------------------------
+# Process question
+# ---------------------------------------------------------
+if analyze_clicked:
+    current_question = question.strip()
+
+    if not current_question:
         st.warning("Please enter a question.")
-        st.stop()
-
-    # -----------------------------
-    # LLM Only
-    # -----------------------------
-    if source_mode == "LLM Only":
-        with st.spinner("Generating LLM answer..."):
-            answer, error = call_llm(question)
-
-        if error:
-            st.error(error)
-        else:
-            st.subheader("🤖 LLM Response")
-            st.markdown(answer)
-
-    # -----------------------------
-    # RAG Only
-    # -----------------------------
-    elif source_mode == "Uploaded RAG Only":
-        if not uploaded_chunks:
-            st.warning("Please upload at least one RAG document first.")
-            st.stop()
-
-        retrieved = retrieve_knowledge(question, uploaded_chunks)
-
-        st.subheader("📖 RAG Retrieved Results")
-
-        if not retrieved:
-            st.info(
-                "No matching content was found in the uploaded documents."
-            )
-        else:
-            for item in retrieved:
-                with st.expander(item["source"], expanded=True):
-                    st.write(item["text"])
-
-    # -----------------------------
-    # Both
-    # -----------------------------
     else:
-        if not uploaded_chunks:
-            st.warning(
-                "No RAG files are uploaded. The app will provide the LLM "
-                "answer without document context."
-            )
+        st.session_state.question = current_question
+        st.session_state.answer = ""
+        st.session_state.rag_results = []
+        st.session_state.error = ""
 
-            with st.spinner("Generating LLM answer..."):
-                answer, error = call_llm(question)
+        # -----------------------------
+        # LLM Only
+        # -----------------------------
+        if source_mode == "🧠 General AI":
+            with st.spinner("Generating LLM response..."):
+                answer, error = call_llm(current_question)
 
             if error:
-                st.error(error)
+                st.session_state.error = error
             else:
-                st.subheader("🤖 LLM Response")
-                st.markdown(answer)
+                st.session_state.answer = answer
 
+        # -----------------------------
+        # RAG Only
+        # -----------------------------
+        elif source_mode == "📚 Search My Documents":
+            if not uploaded_chunks:
+                st.session_state.error = (
+                    "Please upload at least one RAG document first."
+                )
+            else:
+                results = retrieve_knowledge(
+                    current_question,
+                    uploaded_chunks,
+                )
+                st.session_state.rag_results = results
+
+                if not results:
+                    st.session_state.error = (
+                        "No relevant content was found in the uploaded documents."
+                    )
+
+        # -----------------------------
+        # Both RAG + LLM
+        # -----------------------------
         else:
-            retrieved = retrieve_knowledge(question, uploaded_chunks)
-
-            st.subheader("📖 RAG Retrieved Results")
-
-            if retrieved:
-                for item in retrieved:
-                    with st.expander(item["source"], expanded=True):
-                        st.write(item["text"])
-
-                rag_context = "\n\n".join(
-                    f"SOURCE: {item['source']}\n{item['text']}"
-                    for item in retrieved
-                )
-            else:
-                st.info("No matching RAG content was found.")
-                rag_context = ""
-
-            with st.spinner("Generating LLM answer using RAG context..."):
-                answer, error = call_llm(
-                    question,
-                    rag_context=rag_context if rag_context else None,
+            if not uploaded_chunks:
+                st.warning(
+                    "No RAG documents uploaded. The LLM will answer "
+                    "without document context."
                 )
 
-            if error:
-                st.error(error)
+                with st.spinner("Generating LLM response..."):
+                    answer, error = call_llm(current_question)
+
+                if error:
+                    st.session_state.error = error
+                else:
+                    st.session_state.answer = answer
+
             else:
-                st.subheader("🤖 LLM Response")
-                st.markdown(answer)
+                results = retrieve_knowledge(
+                    current_question,
+                    uploaded_chunks,
+                )
+                st.session_state.rag_results = results
+
+                if results:
+                    rag_context = "\n\n".join(
+                        f"SOURCE: {item['source']}\n{item['text']}"
+                        for item in results
+                    )
+                else:
+                    rag_context = ""
+
+                with st.spinner("Generating answer using RAG + LLM..."):
+                    answer, error = call_llm(
+                        current_question,
+                        rag_context=rag_context if rag_context else None,
+                    )
+
+                if error:
+                    st.session_state.error = error
+                else:
+                    st.session_state.answer = answer
+
+
+# =========================================================
+# 8. Display results
+# =========================================================
+if st.session_state.error:
+    st.error(st.session_state.error)
+
+    if st.session_state.error == "GROQ_API_KEY is not configured.":
+        st.info(
+            "Add GROQ_API_KEY in Streamlit Cloud → Settings → Secrets."
+        )
+
+
+if st.session_state.rag_results:
+    st.subheader("📖 RAG Retrieved Results")
+
+    for item in st.session_state.rag_results:
+        with st.expander(item["source"], expanded=True):
+            st.write(item["text"])
+
+
+if st.session_state.answer:
+    st.subheader("🤖 LLM Response")
+    st.markdown(st.session_state.answer)
 
 
 st.divider()
