@@ -1,132 +1,167 @@
 # AI-NOC-Copilot
 
-A lightweight beginner AI project for learning **LLM + RAG** using Streamlit and Groq.
+A lightweight beginner AI project for learning **RAG + LLM** using Streamlit and Groq.
 
-## Main Feature
+## Answer Modes
 
-You can now choose how a question should be answered:
+The application provides three clear options:
+
+### 🧠 General AI
 
 ```text
-1. LLM Only
-2. Uploaded RAG Only
-3. Both: RAG + LLM
+Question → LLM → Answer
 ```
 
-### 1. LLM Only
+The question is answered using the LLM's general model knowledge.
 
-The question is sent directly to the LLM without using your uploaded RAG documents.
+**Important:** this does not mean live internet search.
 
-This demonstrates a normal LLM question/answer.
+### 📚 Search My Documents
 
-**Note:** This option does not mean live internet search. It uses the model's available knowledge, not a real-time web search.
+```text
+Question → RAG Retrieval → Retrieved Content
+```
 
-### 2. Uploaded RAG Only
+The application searches only the documents uploaded by the user and displays the relevant retrieved content.
 
-The application searches the uploaded TXT/PDF/DOCX files and displays the retrieved information.
+This is useful for understanding and testing the RAG retrieval step.
 
-This lets you see what the RAG system actually found before involving the LLM.
-
-### 3. Both: RAG + LLM
-
-The application retrieves relevant information from your uploaded documents and then sends that context to the LLM.
-
-This demonstrates the basic RAG pattern:
+### 🤖 Documents + AI
 
 ```text
 Question
    ↓
-Retrieve relevant document content
+Retrieve relevant uploaded document content
    ↓
-Add retrieved content to prompt
+RAG Context
    ↓
 LLM
    ↓
-Answer
+Final Answer
 ```
 
-## Supported RAG Files
+This demonstrates the basic RAG + LLM pattern.
+
+## RAG File Upload
+
+Supported files:
 
 - TXT
 - PDF
 - DOCX
 
-## Project Files
+The application:
 
-```text
-AI-NOC-Copilot/
-├── app.py
-├── requirements.txt
-└── README.md
-```
+1. Extracts text
+2. Splits it into simple chunks
+3. Searches the chunks using keyword matching
+4. Shows the relevant chunks
+5. Optionally sends those chunks to the LLM
+
+## Clear Results
+
+The **🗑️ Clear Results** button clears the previous question, retrieved RAG results, LLM response, and error message.
+
+## Important
+
+There are **no built-in NOC knowledge responses** in this version.
+
+RAG uses only the documents that you upload.
 
 ## API Key
 
 This project uses Groq.
 
-Create/configure your Groq API key and add it to Streamlit Cloud Secrets using exactly:
+In Streamlit Cloud → Settings → Secrets, add:
 
 ```toml
 GROQ_API_KEY = "your_actual_groq_api_key"
 ```
 
-Do not commit the API key to GitHub.
+The secret name must be exactly:
+
+```text
+GROQ_API_KEY
+```
+
+Never put the actual API key in `app.py` or GitHub.
 
 ## Streamlit Cloud
 
 1. Push `app.py`, `requirements.txt`, and `README.md` to GitHub.
 2. Create/open the Streamlit Cloud application.
 3. Select `app.py` as the main file.
-4. Add `GROQ_API_KEY` under Settings → Secrets.
-5. Deploy/reboot the application.
+4. Go to Settings → Secrets.
+5. Add the `GROQ_API_KEY` secret.
+6. Save and reboot/redeploy if required.
 
 ## Example Test
 
-Upload a packet-loss/congestion document and ask:
+Upload the NOC RAG test documents.
+
+Ask:
 
 ```text
-What could cause packet loss when interface utilization is around 95 percent?
+What can cause a BGP session to go down?
 ```
 
-Try all three modes:
+Then test each mode:
 
-### LLM Only
+**🧠 General AI**
 
-The answer comes from the LLM without your uploaded document.
+Shows the LLM's general answer without using your documents.
 
-### Uploaded RAG Only
+**📚 Search My Documents**
 
-You see the relevant text retrieved from your uploaded document.
+Shows what your uploaded documents retrieve.
 
-### Both: RAG + LLM
+**🤖 Documents + AI**
 
-You see the retrieved document content and then the LLM explains the answer using that context.
+Shows the retrieved document content and the LLM's explanation based on that context.
 
-## Important Learning Point
+## Current RAG Implementation
 
-This version intentionally uses simple keyword retrieval.
+This is intentionally a beginner implementation:
 
-It does NOT yet use:
+```text
+Document
+   ↓
+Text Extraction
+   ↓
+Simple Chunking
+   ↓
+Keyword Matching
+   ↓
+Relevant Chunks
+   ↓
+LLM (when Documents + AI is selected)
+```
+
+It does not yet use:
 
 - Embeddings
 - Vector databases
 - Semantic search
-- Web search
 - Agents
 - Complex workflows
+- Live web search
 
-Those can be added later as separate learning steps.
+These can be added later as separate learning steps.
 
-## Future Enhancement: Live Internet Search
+## Learning Goal
 
-If you specifically want:
+The main goal of this version is to understand the difference between:
 
 ```text
-LLM Only
-RAG Only
-Internet + LLM
-RAG + Internet + LLM
+LLM
 ```
 
-we can add a web-search API as a separate next step.
+```text
+RAG
+```
 
-That is different from "LLM Only": an LLM by itself does not automatically perform live internet searches.
+and:
+
+```text
+RAG + LLM
+```
